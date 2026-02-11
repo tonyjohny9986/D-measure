@@ -1349,5 +1349,44 @@ const redirectUriField=document.getElementById('currentRedirectUri');
 if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
 });
 </script>
+</body>  <!-- (your page content and other scripts above) -->
+
+  <script>
+    (function forceXeroConnectLink() {
+      const XERO_AUTH_PATH = "/.netlify/functions/xeroAuth";
+
+      function matchesConnectText(el) {
+        const t = (el.textContent || "").toLowerCase().replace(/\s+/g, " ").trim();
+        return t.includes("connect to xero") || t === "connect xero" || t.includes("xero connect");
+      }
+
+      function wireElement(el) {
+        if (el.tagName === "A") el.setAttribute("href", XERO_AUTH_PATH);
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.location.href = XERO_AUTH_PATH;
+        }, true);
+      }
+
+      function scanAndWire() {
+        const candidates = [
+          ...document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]'),
+        ];
+        const targets = candidates.filter((el) => {
+          const idClass = ((el.id || "") + " " + (el.className || "")).toLowerCase();
+          if (idClass.includes("xero")) return true;
+          return matchesConnectText(el);
+        });
+        targets.forEach(wireElement);
+      }
+
+      scanAndWire();
+      setTimeout(scanAndWire, 500);
+      setTimeout(scanAndWire, 1500);
+      setTimeout(scanAndWire, 3000);
+    })();
+  </script>
+
 </body>
 </html>
