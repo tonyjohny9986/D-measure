@@ -1,57 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Xero Connected - Decovibes</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f6f1e7;
-    color: #3b2f2f;
-    text-align: center;
-    padding: 60px;
-  }
-  .box {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 40px;
-    max-width: 500px;
-    margin: auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-  h1 {
-    color: #8b6f3d;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xero Connected - Decovibes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f1e7; /* Decovibes beige */
+      color: #3b2f2f;      /* deep brown */
+      text-align: center;
+      padding: 60px 16px;
+    }
+    .box {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 36px 22px;
+      max-width: 560px;
+      margin: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+    }
+    h1 { color: #8b6f3d; margin: 0 0 10px; } /* bronze */
+    p { margin: 8px 0; }
+    .small { font-size: 12px; opacity: 0.85; margin-top: 18px; }
+    code { background: #f2efe8; padding: 2px 6px; border-radius: 6px; }
+  </style>
 </head>
 <body>
 
-<div class="box">
-  <h1>Connecting to Xero...</h1>
-  <p>Please wait while we complete the connection.</p>
-</div>
+  <div class="box" id="box">
+    <h1>Connecting to Xero…</h1>
+    <p>Please wait while we complete the connection.</p>
+    <p class="small">If this page stays here for more than a minute, close it and try again.</p>
+  </div>
 
-<script>
-  // Read tokens from URL fragment
-  const params = new URLSearchParams(window.location.hash.substring(1));
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token");
-  const expiresIn = params.get("expires_in");
+  <script>
+    (async function () {
+      const box = document.getElementById("box");
 
-  if (accessToken) {
-    // Save tokens locally (used by your quoting system)
-    localStorage.setItem("xero_access_token", accessToken);
-    localStorage.setItem("xero_refresh_token", refreshToken);
-    localStorage.setItem("xero_expires_in", expiresIn);
+      // Tokens are returned in the URL fragment: #access_token=...&refresh_token=...
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      const expiresIn = params.get("expires_in");
 
-    document.querySelector(".box").innerHTML =
-      "<h1>Xero Connected Successfully</h1><p>You can now close this window.</p>";
-  } else {
-    document.querySelector(".box").innerHTML =
-      "<h1>Connection Failed</h1><p>Please try connecting again.</p>";
-  }
-</script>
+      if (!accessToken) {
+        box.innerHTML =
+          "<h1>Connection Failed</h1>" +
+          "<p>No access token received. Please go back and click <b>Connect to Xero</b> again.</p>";
+        return;
+      }
+
+      // Save tokens locally (your app can read these)
+      localStorage.setItem("xero_access_token", accessToken);
+      if (refreshToken) localStorage.setItem("xero_refresh_token", refreshToken);
+      if (expiresIn) localStorage.setItem("xero_expires_in", expiresIn);
+
+      // Try to fetch and store tenantId automatically
+      // Requires your Netlify function: /.netlify/functions/xeroTenants
+      try {
+        const res = await fetch("/.netlify/functions/xeroTenants", {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        // Some errors return non-JSON; handle safely
+        const text = await res.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch (_) {}
+
+        if (Array.isArray(data) && data[0] && data[0].tenantId) {
+          localStorage.setItem("xero_tenant_id", data[0].tenantId);
+          localStorage.setItem("xero_tenant_name", data[0].tenantName || "");
+        }
+      } catch (e) {
+        // Ignore tenant fetch failures here; user is still connected
+      }
+
+      // Show success
+      const tenantId = localStorage.getItem("xero_tenant_id");
+      const tenantName = localStorage.getItem("xero_tenant_name");
+
+      box.innerHTML =
+        "<h1>Xero Connected Successfully</h1>" +
+        "<p>You can now close this window.</p>" +
+        (tenantId
+          ? `<p class="small">Tenant: <b>${tenantName || "Connected"}</b> &nbsp;|&nbsp; <code>${tenantId}</code></p>`
+          : `<p class="small">Tenant ID not saved yet. You can re-connect later to auto-save it.</p>`);
+    })();
+  </script>
 
 </body>
 </html>
