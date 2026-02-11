@@ -1236,157 +1236,199 @@ window.addEventListener('online',()=>{document.getElementById('network-status').
 window.addEventListener('offline',()=>{document.getElementById('network-status').className='status offline';document.getElementById('network-status').textContent='● Offline';});
 
 loadJobs();
-// Complete Xero Integration Code - Add before loadJobs();
+<script>
+  // Keep your existing app initialization
+  loadJobs();
 
-let xeroAccessToken=localStorage.getItem('xeroAccessToken');
-let xeroTenantId=localStorage.getItem('xeroTenantId');
+  // -----------------------------
+  // XERO (NEW CLEAN INTEGRATION)
+  // -----------------------------
 
-function connectXero(){
-// Client Secret must never be stored in the browser.
-// This starts OAuth server-side via Netlify Function, using environment variables.
-const clientId=document.getElementById('xeroClientId')?.value?.trim();
-if(clientId) localStorage.setItem('xeroClientId',clientId);
-window.location.href='/.netlify/functions/xero-auth-start';
-}
+  // Always read latest values (your xero-callback.html saves these keys)
+  function getXeroAccessToken() {
+    return localStorage.getItem("xero_access_token");
+  }
+  function getXeroTenantId() {
+    return localStorage.getItem("xero_tenant_id");
+  }
 
-async function handleXeroCallback(){
-const params=new URLSearchParams(window.location.search);
-const code=params.get('code');
-if(!code)return;
-const statusEl=document.getElementById('xeroStatus');
-if(statusEl)statusEl.innerHTML='<span style="color:#F59E0B">⏳ Connecting...</span>';
-try{
-const response=await fetch('/.netlify/functions/xero-auth',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-code
-})
-});
-const data=await response.json();
-if(data.error)throw new Error(data.error);
-xeroAccessToken=data.access_token;
-xeroTenantId=data.tenant_id;
-localStorage.setItem('xeroAccessToken',data.access_token);
-localStorage.setItem('xeroRefreshToken',data.refresh_token);
-localStorage.setItem('xeroTenantId',data.tenant_id);
-if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+data.tenant_name+'</span>';
-alert('✅ Connected to Xero!\n\nOrganization: '+data.tenant_name);
-window.history.replaceState({},document.title,window.location.pathname);
-}catch(err){
-if(statusEl)statusEl.innerHTML='<span style="color:#DC2626">❌ Failed</span>';
-alert('Connection failed:\n'+err.message);
-}
-}
+  // Connect button should always go to the correct function
+  function connectXero() {
+    window.location.href = "/.netlify/functions/xeroAuth";
+  }
 
-async function exportToXero(index){
-const job=jobs[index];
-if(!job)return;
-currentJob=job;
-const calc=calculateTotals(job);
-currentJob=null;
-if(!xeroAccessToken||!xeroTenantId){
-alert('⚠️ Please connect to Xero first!\n\nGo to Settings → Xero Integration');
-return;
-}
-const freightShares=calc.freightShares||[];
-const lineItems=job.windows.map((w,i)=>{
-const width=parseFloat(w.width)||0;
-const drop=parseFloat(w.drop)||0;
-const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
-const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key],parseNumberOr(defaultRates[key],0)));
-const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
-const area=w.type==='Curtains'?(width/1000):((width*drop)/1000000);
-// Hidden extras (install + logistics + allocated freight) are bundled into the UnitAmount.
-const install=getInstallChargeForWindow(w);
-const logistics=getLogisticsChargeForWindow(w);
-const freightShare=(freightShares[i]||0);
-const price=(area*rate*multiplier+install+logistics+freightShare).toFixed(2);
-let desc=`${w.room||'Window '+(i+1)} - ${w.type} ${w.subType}`;
-if(w.color)desc+=` (${w.color})`;
-if(w.fabricType)desc+=` - ${w.fabricType}`;
-desc+=`\n${width}mm x ${drop}mm`;
-const fits=[];
-if(w.recessFit)fits.push('Recess');
-if(w.faceFit)fits.push('Face');
-if(w.ceilingFit)fits.push('Ceiling');
-if(fits.length)desc+=` | ${fits.join(', ')}`;
-if(w.midRailPosition)desc+=` | Mid Rail: ${w.midRailPosition}mm`;
-if(w.notes)desc+=`\n${w.notes}`;
-return{Description:desc,Quantity:1,UnitAmount:parseFloat(price),TaxType:"OUTPUT"};
-});
-try{
-const response=await fetch('/.netlify/functions/xero-export',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-accessToken:xeroAccessToken,
-tenantId:xeroTenantId,
-job:{clientName:job.clientName,email:job.email,address:job.address,date:job.date,id:job.id},
-lineItems:lineItems
-})
-});
-const result=await response.json();
-if(!response.ok||result.error){
-throw new Error(result.error||result.details||'Export failed');
-}
-alert(`✅ Quote exported to Xero!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(2)}\n\n🎉 Check your Xero account!`);
-}catch(err){
-alert('❌ Export failed:\n\n'+err.message);
-}
-}
+  // If you have a status element, update it
+  function refreshXeroStatus() {
+    const statusEl = document.getElementById("xeroStatus");
+    const t = getXeroAccessToken();
+    const tenant = getXeroTenantId();
+    if (!statusEl) return;
 
-window.addEventListener('load',()=>{
-handleXeroCallback();
-const clientId=localStorage.getItem('xeroClientId');
-if(clientId&&document.getElementById('xeroClientId'))document.getElementById('xeroClientId').value=clientId;
-// Client Secret is never stored in the browser.
-if(xeroAccessToken&&xeroTenantId){
-const statusEl=document.getElementById('xeroStatus');
-if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected</span>';
-}
-const redirectUriField=document.getElementById('currentRedirectUri');
-if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
-});
-</script>
-</body>  <!-- (your page content and other scripts above) -->
+    if (t && tenant) {
+      statusEl.innerHTML = '<span style="color:#10B981">✓ Connected to Xero</span>';
+    } else {
+      statusEl.innerHTML = '<span style="color:#DC2626">✖ Not connected</span>';
+    }
+  }
 
-  <script>
-    (function forceXeroConnectLink() {
-      const XERO_AUTH_PATH = "/.netlify/functions/xeroAuth";
+  // Make ANY "Connect to Xero" button/link go to /.netlify/functions/xeroAuth
+  (function forceXeroConnectLink() {
+    const XERO_AUTH_PATH = "/.netlify/functions/xeroAuth";
 
-      function matchesConnectText(el) {
-        const t = (el.textContent || "").toLowerCase().replace(/\s+/g, " ").trim();
-        return t.includes("connect to xero") || t === "connect xero" || t.includes("xero connect");
-      }
+    function matchesConnectText(el) {
+      const t = (el.textContent || "").toLowerCase().replace(/\s+/g, " ").trim();
+      return t.includes("connect to xero") || t === "connect xero" || t.includes("xero connect");
+    }
 
-      function wireElement(el) {
-        if (el.tagName === "A") el.setAttribute("href", XERO_AUTH_PATH);
-        el.addEventListener("click", function (e) {
+    function wireElement(el) {
+      if (el.tagName === "A") el.setAttribute("href", XERO_AUTH_PATH);
+      el.addEventListener(
+        "click",
+        function (e) {
           e.preventDefault();
           e.stopPropagation();
           window.location.href = XERO_AUTH_PATH;
-        }, true);
-      }
+        },
+        true
+      );
+    }
 
-      function scanAndWire() {
-        const candidates = [
-          ...document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]'),
-        ];
-        const targets = candidates.filter((el) => {
-          const idClass = ((el.id || "") + " " + (el.className || "")).toLowerCase();
-          if (idClass.includes("xero")) return true;
-          return matchesConnectText(el);
-        });
-        targets.forEach(wireElement);
-      }
+    function scanAndWire() {
+      const candidates = [
+        ...document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]'),
+      ];
+      const targets = candidates.filter((el) => {
+        const idClass = ((el.id || "") + " " + (el.className || "")).toLowerCase();
+        if (idClass.includes("xero")) return true;
+        return matchesConnectText(el);
+      });
+      targets.forEach(wireElement);
+    }
 
-      scanAndWire();
-      setTimeout(scanAndWire, 500);
-      setTimeout(scanAndWire, 1500);
-      setTimeout(scanAndWire, 3000);
-    })();
-  </script>
+    scanAndWire();
+    setTimeout(scanAndWire, 500);
+    setTimeout(scanAndWire, 1500);
+    setTimeout(scanAndWire, 3000);
+  })();
+
+  // -----------------------------
+  // EXPORT QUOTE TO XERO (DRAFT QUOTE)
+  // Uses your existing "Export to Xero" button: onclick="exportToXero(index)"
+  // -----------------------------
+  async function exportToXero(index) {
+    const job = jobs[index];
+    if (!job) return;
+
+    const accessToken = getXeroAccessToken();
+    const tenantId = getXeroTenantId();
+
+    if (!accessToken || !tenantId) {
+      alert("⚠️ Please connect to Xero first!");
+      return;
+    }
+
+    const calc = calculateTotals(job);
+    const freightShares = calc.freightShares || [];
+
+    const lineItems = job.windows
+      .map((w, i) => {
+        const width = parseFloat(w.width) || 0;
+        const drop = parseFloat(w.drop) || 0;
+        if (width <= 0 || drop <= 0) return null;
+
+        const key =
+          w.type === "Blinds"
+            ? `Blinds-${w.subType}`
+            : w.type === "Curtains"
+            ? `Curtains-${w.subType}`
+            : w.type;
+
+        const rate = parseNumberOr(
+          w.rateOverride,
+          parseNumberOr(job.rates?.[key], parseNumberOr(defaultRates[key], 0))
+        );
+        const multiplier = parseNumberOr(
+          w.multiplierOverride,
+          parseNumberOr(job.multipliers?.[key], 1)
+        );
+
+        const qtyUnit = w.type === "Curtains" ? width / 1000 : (width * drop) / 1000000;
+
+        // Hidden extras bundled into UnitAmount (your preferred method)
+        const install = getInstallChargeForWindow(w);
+        const logistics = getLogisticsChargeForWindow(w);
+        const freightShare = freightShares[i] || 0;
+
+        const unitAmount = qtyUnit * rate * multiplier + install + logistics + freightShare;
+
+        let desc = `${w.room || "Window " + (i + 1)} - ${w.type} ${w.subType}`;
+        if (w.color) desc += ` (${w.color})`;
+        if (w.fabricType) desc += ` - ${w.fabricType}`;
+        desc += `\n${width}mm x ${drop}mm`;
+
+        const fits = [];
+        if (w.recessFit) fits.push("Recess");
+        if (w.faceFit) fits.push("Face");
+        if (w.ceilingFit) fits.push("Ceiling");
+        if (fits.length) desc += ` | ${fits.join(", ")}`;
+        if (w.midRailPosition) desc += ` | Mid Rail: ${w.midRailPosition}mm`;
+        if (w.notes) desc += `\n${w.notes}`;
+
+        return {
+          description: desc,
+          quantity: 1,
+          unitAmount: Number(unitAmount.toFixed(2)),
+          taxType: "OUTPUT",
+        };
+      })
+      .filter(Boolean);
+
+    if (lineItems.length === 0) {
+      alert("No valid windows to export (missing width/drop).");
+      return;
+    }
+
+    const payload = {
+      contactName: job.clientName || "Customer",
+      contactEmail: job.email || "",
+      contactPhone: job.phone || "",
+      quoteNumber: `DV-${String(job.id).slice(-6)}`,
+      reference: job.address || "",
+      summary: "Decovibes Quote",
+      date: job.date || new Date().toISOString().slice(0, 10),
+      expiryDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+      lineItems,
+    };
+
+    const res = await fetch("/.netlify/functions/xeroCreateQuote", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "xero-tenant-id": tenantId,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+    if (!res.ok) {
+      console.error(text);
+      alert("❌ Export failed:\n\n" + text);
+      return;
+    }
+
+    alert(
+      `✅ Quote created in Xero (Draft)!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(
+        2
+      )}\n\nCheck Xero → Quotes`
+    );
+  }
+
+  // On load update status
+  window.addEventListener("load", () => {
+    refreshXeroStatus();
+  });
+</script>
 
 </body>
 </html>
