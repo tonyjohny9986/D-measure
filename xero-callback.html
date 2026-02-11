@@ -1,53 +1,57 @@
-exports.handler = async (event) => {
-  try {
-    const CLIENT_ID = process.env.XERO_CLIENT_ID;
-    const CLIENT_SECRET = process.env.XERO_CLIENT_SECRET;
-    const REDIRECT_URI = process.env.XERO_REDIRECT_URI;
-
-    if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-      return {
-        statusCode: 500,
-        body: "Missing XERO_CLIENT_ID, XERO_CLIENT_SECRET or XERO_REDIRECT_URI in Netlify environment variables.",
-      };
-    }
-
-    const code = event.queryStringParameters?.code;
-    if (!code) return { statusCode: 400, body: "Missing ?code from Xero." };
-
-    const basic = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
-
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: REDIRECT_URI,
-    });
-
-    const res = await fetch("https://identity.xero.com/connect/token", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${basic}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      return { statusCode: 500, body: `Token exchange failed: ${text}` };
-    }
-
-    const token = JSON.parse(text);
-
-    // Redirect back to your front-end page and pass tokens in URL fragment (not sent to server)
-    const base = new URL(REDIRECT_URI).origin;
-    const redirectTo = `${base}/xero-callback.html#access_token=${encodeURIComponent(
-      token.access_token
-    )}&refresh_token=${encodeURIComponent(token.refresh_token || "")}&expires_in=${encodeURIComponent(
-      token.expires_in || ""
-    )}`;
-
-    return { statusCode: 302, headers: { Location: redirectTo }, body: "" };
-  } catch (e) {
-    return { statusCode: 500, body: `xeroCallback error: ${e?.message || e}` };
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Xero Connected - Decovibes</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f6f1e7;
+    color: #3b2f2f;
+    text-align: center;
+    padding: 60px;
   }
-};
+  .box {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 40px;
+    max-width: 500px;
+    margin: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  h1 {
+    color: #8b6f3d;
+  }
+</style>
+</head>
+<body>
+
+<div class="box">
+  <h1>Connecting to Xero...</h1>
+  <p>Please wait while we complete the connection.</p>
+</div>
+
+<script>
+  // Read tokens from URL fragment
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  const expiresIn = params.get("expires_in");
+
+  if (accessToken) {
+    // Save tokens locally (used by your quoting system)
+    localStorage.setItem("xero_access_token", accessToken);
+    localStorage.setItem("xero_refresh_token", refreshToken);
+    localStorage.setItem("xero_expires_in", expiresIn);
+
+    document.querySelector(".box").innerHTML =
+      "<h1>Xero Connected Successfully</h1><p>You can now close this window.</p>";
+  } else {
+    document.querySelector(".box").innerHTML =
+      "<h1>Connection Failed</h1><p>Please try connecting again.</p>";
+  }
+</script>
+
+</body>
+</html>
