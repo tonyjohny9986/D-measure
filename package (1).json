@@ -1,0 +1,8 @@
+{
+  "name": "measurement-pro",
+  "version": "1.0.0",
+  "description": "Decovibes Measurement Pro with Xero Integration",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}

@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Measurement Pro - Decovibes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#F5EFE7 0%,#E8DED0 100%);min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+.header{background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);color:white;padding:24px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.header-content{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}
+.logo-section{display:flex;align-items:center;gap:15px}
+.logo{height:50px;object-fit:contain}
+.title{font-size:32px;font-weight:700;margin:0}
+.subtitle{font-size:14px;opacity:0.9;margin:5px 0 0 0}
+.nav-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:12px 24px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:16px;transition:all 0.2s}
+.btn-nav{background:rgba(255,255,255,0.2);color:white}
+.btn-nav.active{background:linear-gradient(135deg,#B8936D 0%,#9A7A57 100%)}
+.btn-teal{background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);color:white;box-shadow:0 4px 6px rgba(123,204,196,0.3)}
+.btn-teal:hover{transform:translateY(-2px)}
+.btn-gray{background:#6B7280;color:white}
+.btn-red{background:#EF4444;color:white}
+.btn-green{background:#10B981;color:white}
+.card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.card-title{color:#7BCCC4;font-size:20px;margin:0 0 20px 0;font-weight:600}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;margin-bottom:20px}
+input,select{width:100%;padding:12px;font-size:16px;border:2px solid #E5E7EB;border-radius:8px}
+input:focus,select:focus{outline:none;border-color:#7BCCC4}
+.table-container{overflow-x:auto;margin:20px 0}
+table{width:100%;border-collapse:collapse;min-width:800px}
+th{background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);color:white;padding:12px 8px;text-align:left;font-weight:600;font-size:14px}
+td{padding:10px 8px;border-bottom:1px solid #E5E7EB}
+tr:hover{background:#F9FAFB}
+.empty-state{text-align:center;padding:60px 20px}
+.empty-icon{font-size:80px;margin-bottom:20px}
+.empty-title{font-size:28px;color:#1F2937;margin-bottom:15px}
+.empty-text{color:#6B7280;font-size:16px;margin-bottom:30px}
+.status{position:fixed;top:10px;right:10px;padding:8px 15px;border-radius:20px;font-size:12px;font-weight:bold;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.status.online{background:#10B981;color:white}
+.status.offline{background:#EF4444;color:white}
+.btn-row{display:flex;gap:15px;margin-top:20px}
+.btn-row .btn{flex:1}
+.hidden{display:none}
+.summary-card{background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);color:white;border-radius:12px;padding:24px;margin-bottom:20px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-top:15px}
+.summary-box{background:rgba(255,255,255,0.2);padding:15px;border-radius:8px}
+.summary-label{font-size:12px;opacity:0.9;margin-bottom:5px}
+.summary-value{font-size:24px;font-weight:700}
+.settings-panel{background:#F9FAFB;padding:20px;border-radius:8px;margin-top:15px;border:2px solid #E5E7EB}
+.price-table{width:100%;margin-top:15px}
+.price-table td{padding:8px}
+.price-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.2)}
+.price-row:last-child{border-bottom:2px solid rgba(255,255,255,0.4);font-weight:700;font-size:18px}
+.alert-badge{background:#FEF3C7;color:#92400E;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center}
+.modal.active{display:flex}
+.modal-content{background:white;padding:30px;border-radius:12px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.3)}
+.modal-title{color:#DC2626;font-size:24px;margin-bottom:15px;font-weight:700}
+.freight-note{background:#E0F2FE;border-left:4px solid#0284C7;padding:12px;margin:10px 0;font-size:13px;color:#075985}
+</style>
+</head>
+<body>
+<div id="network-status" class="status online">● Online</div>
+
+<!-- Mid Rail Modal -->
+<div id="midRailModal" class="modal">
+<div class="modal-content">
+<h2 class="modal-title">⚠️ Mid Rail Required!</h2>
+<p style="margin-bottom:20px;color:#666">This shutter exceeds 1200mm in drop. A mid rail is mandatory.</p>
+<div style="background:#FEE2E2;padding:15px;border-radius:8px;margin-bottom:20px">
+<strong style="color:#DC2626">Window: <span id="modalWindowInfo"></span></strong><br>
+<span style="color:#666">Drop: <span id="modalWindowDrop"></span>mm</span>
+</div>
+<label style="display:block;margin-bottom:10px;font-weight:600">Mid Rail Position (mm from top):</label>
+<input type="number" id="midRailPosition" placeholder="e.g. 600" style="width:100%;padding:12px;margin-bottom:20px">
+<div style="display:flex;gap:10px">
+<button class="btn btn-gray" onclick="closeMidRailModal()" style="flex:1">Cancel</button>
+<button class="btn btn-teal" onclick="saveMidRail()" style="flex:1">✓ Save</button>
+</div>
+</div>
+</div>
+
+<div class="container">
+<div class="header">
+<div class="header-content">
+<div class="logo-section">
+<img src="logo.png" alt="Decovibes" class="logo" onerror="this.style.display='none'">
+<div>
+<h1 class="title">Measurement Pro</h1>
+<p class="subtitle">Decovibes - Professional Window Measurements</p>
+</div>
+</div>
+<div class="nav-buttons">
+<button id="btnSettings" class="btn btn-nav" onclick="toggleSettings()">⚙️</button>
+<button id="btnMeasure" class="btn btn-nav active" onclick="showTab('measure')">📏 Measure</button>
+<button id="btnJobs" class="btn btn-nav" onclick="showTab('saved')">💾 Jobs (<span id="jobCount">0</span>)</button>
+</div>
+</div>
+<div id="settingsPanel" class="settings-panel hidden">
+<h3 style="color:#7BCCC4;margin-bottom:20px;font-size:24px">⚙️ Settings <span style="font-size:12px;color:#6B7280;font-weight:600">build 2026-02-11.5</span></h3>
+
+<!-- Xero Integration -->
+<div style="background:linear-gradient(135deg,#E0F2FE 0%,#BAE6FD 100%);border:3px solid #0284C7;padding:25px;border-radius:12px;margin-bottom:30px">
+<h4 style="color:#0369A1;margin-bottom:15px;font-size:20px;font-weight:700">📤 Xero Integration</h4>
+<p style="color:#1F2937;font-size:15px;margin-bottom:20px;font-weight:500">One-click export to Xero</p>
+
+<div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:15px;margin-bottom:20px;border-radius:6px">
+<p style="color:#92400E;font-weight:700;margin-bottom:8px">📍 Your Redirect URI:</p>
+<input type="text" id="currentRedirectUri" readonly onclick="this.select()" style="width:100%;padding:12px;border:2px solid #F59E0B;border-radius:6px;font-family:monospace;font-size:14px;background:#FFFBEB;color:#92400E;font-weight:700;cursor:pointer">
+<p style="color:#78350F;font-size:12px;margin-top:8px">Use this EXACT URL in your Xero app</p>
+</div>
+
+<div style="display:grid;gap:15px;max-width:600px">
+<div>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:8px">Xero Client ID:</label>
+<input type="text" id="xeroClientId" placeholder="Paste from Xero" style="width:100%;padding:12px;border:2px solid #0284C7;border-radius:8px;font-size:14px">
+</div>
+<div style="display:flex;align-items:center;gap:15px">
+<button class="btn" style="background:#0284C7;color:white;padding:12px 24px;font-size:15px;font-weight:600" onclick="connectXero()">🔗 Connect to Xero</button>
+<span id="xeroStatus" style="font-weight:700;font-size:15px"></span>
+</div>
+</div>
+</div>
+
+<!-- Install & Logistics -->
+<div style="background:#F9FAFB;border:2px solid #E5E7EB;border-radius:12px;padding:25px;margin-bottom:30px">
+<h4 style="color:#7BCCC4;margin-bottom:10px;font-size:18px;font-weight:700">🔧 Install & Logistics (internal recovery)</h4>
+<p style="color:#6B7280;font-size:13px;margin-bottom:20px">
+These amounts are <strong>EX GST</strong> and added on top of product price (no multiplier). Visible to you, hidden in Xero export.
+</p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:20px">
+<div style="background:white;border:2px solid #D1D5DB;border-radius:10px;padding:20px">
+<strong style="display:block;color:#B8936D;margin-bottom:15px;font-size:16px">🔧 Install charge per item</strong>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Roller / Zebra / Venetian / Trublockout</label>
+<input type="number" id="install-Blinds-Roller" placeholder="25" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Vertical Blinds</label>
+<input type="number" id="install-Blinds-Vertical" placeholder="30" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Curtains (Sheer/Blockout)</label>
+<input type="number" id="install-Curtains" placeholder="35" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Verishade</label>
+<input type="number" id="install-Verishade" placeholder="40" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div>
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Shutters</label>
+<input type="number" id="install-Shutters" placeholder="50" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+</div>
+
+<div style="background:white;border:2px solid #D1D5DB;border-radius:10px;padding:20px">
+<strong style="display:block;color:#B8936D;margin-bottom:15px;font-size:16px">🚚 Logistics recovery per item</strong>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Base (all items)</label>
+<input type="number" id="log-base" placeholder="15" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Medium add (≥ width)</label>
+<input type="number" id="log-mediumAdd" placeholder="10" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Medium width (mm)</label>
+<input type="number" id="log-mediumWidth" placeholder="2400" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Large add (≥ width)</label>
+<input type="number" id="log-largeAdd" placeholder="20" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<div>
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Large width (mm)</label>
+<input type="number" id="log-largeWidth" placeholder="3600" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px" />
+</div>
+<p style="color:#6B7280;font-size:12px;margin-top:15px;background:#FEF3C7;padding:10px;border-radius:6px">
+💡 Rule: Base applies to all. If width ≥ Large, only Large add applies (highest tier wins).
+</p>
+</div>
+</div>
+</div>
+
+<!-- Freight Settings -->
+<div style="background:#FEF3C7;border:2px solid #F59E0B;border-radius:12px;padding:25px;margin-bottom:30px">
+<h4 style="color:#B8936D;margin-bottom:10px;font-size:18px;font-weight:700">🚚 Freight Carrier Settings</h4>
+<p style="color:#78350F;font-size:13px;margin-bottom:20px">
+Freight costs <strong>EX GST</strong>. Distributed invisibly across products when exporting to Xero.
+</p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:20px">
+<div style="background:white;border:2px solid #D1D5DB;border-radius:10px;padding:20px">
+<strong style="display:block;color:#B8936D;margin-bottom:15px;font-size:16px">Betta Freight</strong>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Base charge ($)</label>
+<input type="number" id="freight-betta-base" value="25" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Per meter ($)</label>
+<input type="number" id="freight-betta-perMeter" value="0" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Threshold (m)</label>
+<input type="number" id="freight-betta-threshold" value="6" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div>
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Over-length ($)</label>
+<input type="number" id="freight-betta-overLength" value="30" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+</div>
+
+<div style="background:white;border:2px solid #D1D5DB;border-radius:10px;padding:20px">
+<strong style="display:block;color:#B8936D;margin-bottom:15px;font-size:16px">Couriers Please</strong>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Base charge ($)</label>
+<input type="number" id="freight-couriers-base" value="35" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Per meter ($)</label>
+<input type="number" id="freight-couriers-perMeter" value="0" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div style="margin-bottom:12px">
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Threshold (m)</label>
+<input type="number" id="freight-couriers-threshold" value="6" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+<div>
+<label style="display:block;font-size:14px;color:#374151;margin-bottom:5px">Over-length ($)</label>
+<input type="number" id="freight-couriers-overLength" value="40" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:8px" />
+</div>
+</div>
+</div>
+
+<div style="margin-top:20px">
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:10px;font-size:15px">Default Carrier:</label>
+<select id="freight-carrier" onchange="updateFreightCarrier()" style="padding:12px;border:2px solid #D1D5DB;border-radius:8px;width:220px;font-size:14px">
+<option value="betta">Betta Freight</option>
+<option value="couriers">Couriers Please</option>
+</select>
+</div>
+
+<p style="color:#78350F;font-size:12px;margin-top:20px;background:#FFFBEB;padding:12px;border-radius:6px">
+💡 <strong>Calculation:</strong> Base + (Total meters × Per meter) + (Over-length if any item ≥ Threshold)
+</p>
+</div>
+
+<!-- Rates & Multipliers -->
+<h4 style="color:#7BCCC4;margin-bottom:15px">Default Rates & Multipliers</h4>
+<p style="color:#6B7280;font-size:14px;margin-bottom:15px">Base rates for quick estimates. Type decimals like 1.8 or 2.5 in multiplier column</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;max-width:100%;overflow-x:auto">
+<div>
+<strong style="color:#B8936D;display:block;margin-bottom:10px">Blinds ($/m²)</strong>
+<table style="width:100%;border-collapse:collapse">
+<thead>
+<tr style="background:#E5E7EB">
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Product</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Rate</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Mult</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:6px;color:#1F2937">Roller</td><td style="padding:6px"><input type="number" id="rate-Blinds-Roller" value="35" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Blinds-Roller" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Trublockout</td><td style="padding:6px"><input type="number" id="rate-Blinds-Trublockout" value="500" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Blinds-Trublockout" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Vertical</td><td style="padding:6px"><input type="number" id="rate-Blinds-Vertical" value="85" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Blinds-Vertical" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Zebra</td><td style="padding:6px"><input type="number" id="rate-Blinds-Zebra" value="110" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Blinds-Zebra" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Venetian</td><td style="padding:6px"><input type="number" id="rate-Blinds-Venetian" value="95" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Blinds-Venetian" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+</tbody>
+</table>
+</div>
+<div>
+<strong style="color:#B8936D;display:block;margin-bottom:10px">Curtains ($/m)</strong>
+<table style="width:100%;border-collapse:collapse">
+<thead>
+<tr style="background:#E5E7EB">
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Product</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Rate</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Mult</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:6px;color:#1F2937">Sheer</td><td style="padding:6px"><input type="number" id="rate-Curtains-Sheer" value="105" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Curtains-Sheer" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Blockout</td><td style="padding:6px"><input type="number" id="rate-Curtains-Blockout" value="145" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Curtains-Blockout" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+</tbody>
+</table>
+</div>
+<div>
+<strong style="color:#B8936D;display:block;margin-bottom:10px">Other Products ($/m²)</strong>
+<table style="width:100%;border-collapse:collapse">
+<thead>
+<tr style="background:#E5E7EB">
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Product</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Rate</th>
+<th style="padding:8px;text-align:left;color:#374151;font-size:13px">Mult</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:6px;color:#1F2937">Shutters</td><td style="padding:6px"><input type="number" id="rate-Shutters" value="850" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Shutters" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Verishade</td><td style="padding:6px"><input type="number" id="rate-Verishade" value="380" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Verishade" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<button class="btn btn-teal" style="margin-top:20px" onclick="saveSettings()">💾 Save Settings</button>
+</div>
+</div>
+
+<div id="viewMeasure">
+<div id="emptyState" class="card">
+<div class="empty-state">
+<div class="empty-icon">📏</div>
+<h2 class="empty-title">Ready to Start Measuring?</h2>
+<p class="empty-text">Create a new job to begin taking window measurements</p>
+<button class="btn btn-teal" onclick="startNewJob()">➕ Start New Job</button>
+</div>
+</div>
+
+<div id="jobForm" class="card hidden">
+<h2 class="card-title">📋 Client Details</h2>
+<div class="form-grid">
+<input type="text" id="clientName" placeholder="Client Name *" required>
+<input type="text" id="address" placeholder="Address">
+<input type="tel" id="phone" placeholder="Phone">
+<input type="email" id="email" placeholder="Email">
+</div>
+</div>
+
+<div class="card hidden" id="windowsCard">
+<h3 class="card-title">📏 Window Measurements</h3>
+<div id="emptyWindows" class="empty-state" style="padding:40px">
+<p style="color:#6B7280;margin-bottom:15px;font-size:16px">No windows added yet</p>
+<button onclick="addWindow()" class="btn btn-teal">+ Add Window</button>
+</div>
+<div id="windowsTable" class="hidden">
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Room</th>
+<th>Window #</th>
+<th>Type</th>
+<th>Sub-Type</th>
+<th>Width (mm)</th>
+<th>Drop (mm)</th>
+<th>Fit Type</th>
+<th>Area</th>
+<th>Alert</th>
+<th>Notes</th>
+<th>Del</th>
+</tr>
+</thead>
+<tbody id="windowsBody"></tbody>
+</table>
+</div>
+<button onclick="addWindow()" class="btn btn-teal" style="margin-top:15px">+ Add Window</button>
+</div>
+</div>
+
+<div id="liveSummary" class="hidden"></div>
+
+<div id="finalDetails" class="hidden">
+<div class="card" style="margin-bottom:20px">
+<h3 class="card-title">📊 Quote Summary</h3>
+<div id="finalSummary"></div>
+</div>
+
+<div class="card">
+<h3 class="card-title">💰 Adjust Pricing (Optional)</h3>
+<p style="color:#666;font-size:14px;margin-bottom:15px">Select fabric and adjust rates. Type decimals like 1.8 or 2.5</p>
+<div id="pricingAdjustments"></div>
+</div>
+</div>
+
+<div class="btn-row hidden" id="jobButtons">
+<button onclick="cancelJob()" class="btn btn-gray">← Cancel</button>
+<button onclick="showFinalDetails()" class="btn btn-teal" id="btnContinue" style="flex:2">Continue to Final Details →</button>
+<button onclick="saveJob()" class="btn btn-green hidden" id="btnSave" style="flex:2">💾 Save Job</button>
+</div>
+</div>
+
+<div id="viewSaved" class="card hidden">
+<h2 class="card-title">💾 Saved Jobs</h2>
+<div id="savedJobsList"></div>
+</div>
+</div>
+
+<script>
+const GST_RATE=0.1;
+let jobs=[];
+let currentJob=null;
+let currentEditingIndex=null;
+let windowIdCounter=1;
+let showingFinalDetails=false;
+let currentMidRailWindowIndex=null;
+let freightCarrier='betta';
+
+const PRICE_LISTS = {
+  rollerBlinds: {'Vibe': 30, 'Kleen Screen 5%': 30, 'Kew': 33, 'Toorak': 37, 'Cottesloe': 37, 'Sanctuary': 37, 'Le-Reve': 43, 'Balmoral': 45, 'Linesque': 48, 'Cassette Zebra Classic': 110, 'Cassette Zebra Opera': 100, 'Cassette Zebra Modern': 100, 'Cassette Zebra Luxury': 100},
+  verticalBlinds: {'Builders Range': 70, 'Category A': 80, 'Category B': 85, 'Category C': 95, 'Category D': 110, 'Category E': 125, 'Category F': 140, 'Category G': 175, 'Category H': 195, 'Category I': 220, 'Category J': 250},
+  curtainsSheer: {'Budget Range': 94, 'Group 1 - Most Trending': 105, 'Group 2 - Classic': 110, 'Group 3 - Designer': 120, 'Group 4 - Premium': 125},
+  curtainsBlockout: {'Group 1 - Budget': 135, 'Group 1 - Vertex': 140, 'Group 1 - Nettex': 145, 'Group 2': 148, 'Group 3 - Velvet': 150, 'Premium Velvet': 195},
+  verishade: {'Category 1 - Wand': 350, 'Category 1 - Motorised': 510, 'Category 2 - Wand': 380, 'Category 2 - Motorised': 540, 'S Range - Wand': 420, 'S Range - Motorised': 580}
+};
+
+const defaultRates={'Blinds-Roller':35,'Blinds-Trublockout':500,'Blinds-Vertical':85,'Blinds-Zebra':110,'Blinds-Venetian':95,'Shutters':850,'Curtains-Sheer':105,'Curtains-Blockout':145,'Verishade':380};
+const defaultMultipliers={'Blinds-Roller':1.8,'Blinds-Trublockout':1.8,'Blinds-Vertical':1.8,'Blinds-Zebra':1.8,'Blinds-Venetian':1.8,'Shutters':1.8,'Curtains-Sheer':1.8,'Curtains-Blockout':1.8,'Verishade':1.8};
+
+const defaultInstallCharges={
+  'Blinds-Roller':30,
+  'Blinds-Trublockout':30,
+  'Blinds-Vertical':120,
+  'Blinds-Zebra':30,
+  'Blinds-Venetian':30,
+  'Curtains-Sheer':120,
+  'Curtains-Blockout':120,
+  'Verishade':120,
+  'Shutters':150
+};
+// Logistics recovery (internal, EX GST). Base applies to every item.
+// Medium adds when width >= mediumWidthMm, Large adds when width >= largeWidthMm (highest tier wins).
+const defaultLogisticsConfig={base:12, mediumAdd:20, largeAdd:40, mediumWidthMm:2500, largeWidthMm:3900};
+const defaultFreightConfig={
+  betta:{base:25,perMeter:0,thresholdM:6,overLength:30},
+  couriers:{base:35,perMeter:0,thresholdM:6,overLength:40}
+};
+
+function getWindowKey(w){
+  return w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+}
+
+function parseNumberOr(value,fallback){
+  const n=parseFloat(value);
+  return Number.isNaN(n)?fallback:n;
+}
+
+function normalizeDecimalInput(value){
+  return String(value??'').replace(',', '.').trim();
+}
+
+function handleSettingsMultiplierBlur(el){
+  const normalized=normalizeDecimalInput(el?.value);
+  const parsed=parseFloat(normalized);
+  if(!normalized||Number.isNaN(parsed)){
+    el.value=el.dataset.lastValid||'1.8';
+    return;
+  }
+  el.value=String(parsed);
+  el.dataset.lastValid=el.value;
+}
+
+function handleJobMultiplierBlur(idx,el){
+  const normalized=normalizeDecimalInput(el?.value);
+  const parsed=parseFloat(normalized);
+  if(!normalized||Number.isNaN(parsed)){
+    const w=currentJob?.windows?.[idx];
+    const key=w?getWindowKey(w):null;
+    const fallback=parseNumberOr(w?.multiplierOverride,parseNumberOr(currentJob?.multipliers?.[key],parseNumberOr(defaultMultipliers[key],1.8)));
+    el.value=String(fallback);
+  }else{
+    el.value=String(parsed);
+  }
+  updateJobRates(idx);
+}
+
+function calculateFreight(jobObj=currentJob){
+if(!jobObj||!Array.isArray(jobObj.windows))return 0;
+const carrier=jobObj.freightCarrier||freightCarrier;
+if(carrier==='none')return 0;
+const cfg=defaultFreightConfig[carrier];
+if(!cfg)return 0;
+let totalMeters=0;
+let hasOverLength=false;
+jobObj.windows.forEach(w=>{
+const width=parseFloat(w.width)||0;
+if(width<=0)return;
+const widthM=width/1000;
+totalMeters+=widthM;
+if(widthM>=cfg.thresholdM)hasOverLength=true;
+});
+let freight=(cfg.base||0)+(totalMeters*(cfg.perMeter||0));
+if(hasOverLength)freight+=(cfg.overLength||0);
+return Math.round(freight*100)/100;
+}
+
+function getAlert(w){
+const width=parseFloat(w.width)||0;
+const drop=parseFloat(w.drop)||0;
+const alerts=[];
+if(w.type==='Blinds'&&width>2200)alerts.push('Thick tube');
+if(w.type==='Shutters'&&drop>1200)alerts.push('Mid rail');
+if(w.type==='Curtains'&&width>3000)alerts.push('Extra ship');
+return alerts.join(', ');
+}
+
+function checkMidRailRequired(index){
+const w=currentJob.windows[index];
+if(w.type==='Shutters'){
+const drop=parseFloat(w.drop)||0;
+if(drop>1200&&!w.midRailPosition){
+currentMidRailWindowIndex=index;
+document.getElementById('modalWindowInfo').textContent=(w.room||'Unnamed')+' - Window '+(w.windowNumber||'#'+(index+1));
+document.getElementById('modalWindowDrop').textContent=drop;
+document.getElementById('midRailPosition').value=w.midRailPosition||'';
+document.getElementById('midRailModal').classList.add('active');
+return false;
+}
+}
+return true;
+}
+
+function closeMidRailModal(){
+document.getElementById('midRailModal').classList.remove('active');
+currentMidRailWindowIndex=null;
+}
+
+function saveMidRail(){
+const position=parseFloat(document.getElementById('midRailPosition').value);
+if(!position||position<=0){alert('Please enter a valid mid rail position');return;}
+if(currentMidRailWindowIndex!==null)currentJob.windows[currentMidRailWindowIndex].midRailPosition=position;
+closeMidRailModal();
+renderWindows();
+}
+
+function loadJobs(){
+const saved=localStorage.getItem('decovibes_jobs');
+if(saved){try{jobs=JSON.parse(saved)}catch(e){jobs=[]}}
+updateJobCount();
+loadSettings();
+}
+
+
+function updateJobExtras(){
+  currentJob.windows.forEach((w,idx)=>{
+    const installEl=document.getElementById('jobinstall-'+idx);
+    const logEl=document.getElementById('joblog-'+idx);
+    if(installEl){
+      const v=installEl.value;
+      w.installOverride = (v===null||v==='') ? '' : v;
+    }
+    if(logEl){
+      const v=logEl.value;
+      w.logisticsOverride = (v===null||v==='') ? '' : v;
+    }
+  });
+  updateLiveSummary();
+  renderPricingAdjustments();
+}
+
+function saveJobs(){
+localStorage.setItem('decovibes_jobs',JSON.stringify(jobs));
+updateJobCount();
+}
+
+function loadSettings(){
+Object.keys(defaultRates).forEach(key=>{
+const saved=localStorage.getItem('rate-'+key);
+if(saved!==null){
+  const parsed=parseFloat(saved);
+  if(!Number.isNaN(parsed))defaultRates[key]=parsed;
+}
+const el=document.getElementById('rate-'+key);
+if(el)el.value=defaultRates[key];
+});
+Object.keys(defaultMultipliers).forEach(key=>{
+const saved=localStorage.getItem('mult-'+key);
+if(saved!==null){
+  const parsed=parseFloat(normalizeDecimalInput(saved));
+  if(!Number.isNaN(parsed))defaultMultipliers[key]=parsed;
+}
+const el=document.getElementById('mult-'+key);
+if(el){
+  el.value=parseNumberOr(defaultMultipliers[key],1.8);
+  el.dataset.lastValid=String(el.value);
+}
+});
+const savedFreight=localStorage.getItem('freightCarrier')||'betta';
+freightCarrier=savedFreight;
+const freightEl=document.getElementById('freight-carrier');
+if(freightEl)freightEl.value=savedFreight;
+const savedFreightConfig=localStorage.getItem('freightConfig');
+if(savedFreightConfig){
+  try{
+    const obj=JSON.parse(savedFreightConfig);
+    if(obj&&typeof obj==='object'){
+      ['betta','couriers'].forEach(c=>{
+        if(!obj[c]||typeof obj[c]!=='object')return;
+        ['base','perMeter','thresholdM','overLength'].forEach(k=>{
+          const parsed=parseFloat(obj[c][k]);
+          if(!Number.isNaN(parsed))defaultFreightConfig[c][k]=parsed;
+        });
+      });
+    }
+  }catch(e){}
+}
+const freightMap={
+  'freight-betta-base':defaultFreightConfig.betta.base,
+  'freight-betta-perMeter':defaultFreightConfig.betta.perMeter,
+  'freight-betta-threshold':defaultFreightConfig.betta.thresholdM,
+  'freight-betta-overLength':defaultFreightConfig.betta.overLength,
+  'freight-couriers-base':defaultFreightConfig.couriers.base,
+  'freight-couriers-perMeter':defaultFreightConfig.couriers.perMeter,
+  'freight-couriers-threshold':defaultFreightConfig.couriers.thresholdM,
+  'freight-couriers-overLength':defaultFreightConfig.couriers.overLength
+};
+Object.entries(freightMap).forEach(([id,val])=>{
+  const el=document.getElementById(id);
+  if(el)el.value=val;
+});
+
+// Install charges
+Object.keys(defaultInstallCharges).forEach(key=>{
+  const saved=localStorage.getItem('install-'+key);
+  if(saved!==null){
+    const parsed=parseFloat(saved);
+    if(!Number.isNaN(parsed))defaultInstallCharges[key]=parsed;
+  }
+});
+const installRollerEl=document.getElementById('install-Blinds-Roller');
+if(installRollerEl)installRollerEl.value=defaultInstallCharges['Blinds-Roller'];
+const installVerticalEl=document.getElementById('install-Blinds-Vertical');
+if(installVerticalEl)installVerticalEl.value=defaultInstallCharges['Blinds-Vertical'];
+const installCurtainsEl=document.getElementById('install-Curtains');
+if(installCurtainsEl)installCurtainsEl.value=defaultInstallCharges['Curtains-Sheer'];
+const installVerishadeEl=document.getElementById('install-Verishade');
+if(installVerishadeEl)installVerishadeEl.value=defaultInstallCharges['Verishade'];
+const installShuttersEl=document.getElementById('install-Shutters');
+if(installShuttersEl)installShuttersEl.value=defaultInstallCharges['Shutters'];
+
+// Logistics config
+const savedLog=localStorage.getItem('logisticsConfig');
+if(savedLog){
+  try{
+    const obj=JSON.parse(savedLog);
+    Object.assign(defaultLogisticsConfig,obj||{});
+  }catch(e){}
+}
+const elBase=document.getElementById('log-base'); if(elBase) elBase.value=defaultLogisticsConfig.base;
+const elMedAdd=document.getElementById('log-mediumAdd'); if(elMedAdd) elMedAdd.value=defaultLogisticsConfig.mediumAdd;
+const elLargeAdd=document.getElementById('log-largeAdd'); if(elLargeAdd) elLargeAdd.value=defaultLogisticsConfig.largeAdd;
+const elMedW=document.getElementById('log-mediumWidth'); if(elMedW) elMedW.value=defaultLogisticsConfig.mediumWidthMm;
+const elLargeW=document.getElementById('log-largeWidth'); if(elLargeW) elLargeW.value=defaultLogisticsConfig.largeWidthMm;
+
+}
+
+function saveSettings(){
+const parseOr=(el,fallback)=>{
+  if(!el)return fallback;
+  const parsed=parseFloat(el.value);
+  return Number.isNaN(parsed)?fallback:parsed;
+};
+
+Object.keys(defaultRates).forEach(key=>{
+const el=document.getElementById('rate-'+key);
+if(el){
+const val=parseOr(el,defaultRates[key]);
+defaultRates[key]=val;
+localStorage.setItem('rate-'+key,val);
+}
+});
+Object.keys(defaultMultipliers).forEach(key=>{
+const el=document.getElementById('mult-'+key);
+if(el){
+const normalized=normalizeDecimalInput(el.value);
+if(normalized===''){
+  el.value=String(defaultMultipliers[key]);
+  return;
+}
+const parsed=parseFloat(normalized);
+if(Number.isNaN(parsed)){
+  el.value=String(defaultMultipliers[key]);
+  el.dataset.lastValid=el.value;
+  return;
+}
+el.value=normalized;
+const val=parsed;
+defaultMultipliers[key]=val;
+localStorage.setItem('mult-'+key,val);
+el.dataset.lastValid=String(val);
+}
+});
+const selectedFreight=document.getElementById('freight-carrier')?.value||'betta';
+freightCarrier=selectedFreight;
+localStorage.setItem('freightCarrier',selectedFreight);
+defaultFreightConfig.betta.base=parseOr(document.getElementById('freight-betta-base'),defaultFreightConfig.betta.base);
+defaultFreightConfig.betta.perMeter=parseOr(document.getElementById('freight-betta-perMeter'),defaultFreightConfig.betta.perMeter);
+defaultFreightConfig.betta.thresholdM=parseOr(document.getElementById('freight-betta-threshold'),defaultFreightConfig.betta.thresholdM);
+defaultFreightConfig.betta.overLength=parseOr(document.getElementById('freight-betta-overLength'),defaultFreightConfig.betta.overLength);
+defaultFreightConfig.couriers.base=parseOr(document.getElementById('freight-couriers-base'),defaultFreightConfig.couriers.base);
+defaultFreightConfig.couriers.perMeter=parseOr(document.getElementById('freight-couriers-perMeter'),defaultFreightConfig.couriers.perMeter);
+defaultFreightConfig.couriers.thresholdM=parseOr(document.getElementById('freight-couriers-threshold'),defaultFreightConfig.couriers.thresholdM);
+defaultFreightConfig.couriers.overLength=parseOr(document.getElementById('freight-couriers-overLength'),defaultFreightConfig.couriers.overLength);
+localStorage.setItem('freightConfig',JSON.stringify(defaultFreightConfig));
+
+// Save install charges (grouped inputs)
+const vRoller=parseOr(document.getElementById('install-Blinds-Roller'),defaultInstallCharges['Blinds-Roller']);
+['Blinds-Roller','Blinds-Zebra','Blinds-Venetian','Blinds-Trublockout'].forEach(k=>{defaultInstallCharges[k]=vRoller; localStorage.setItem('install-'+k,vRoller);});
+const vVertical=parseOr(document.getElementById('install-Blinds-Vertical'),defaultInstallCharges['Blinds-Vertical']);
+defaultInstallCharges['Blinds-Vertical']=vVertical; localStorage.setItem('install-Blinds-Vertical',vVertical);
+const vCurt=parseOr(document.getElementById('install-Curtains'),defaultInstallCharges['Curtains-Sheer']);
+['Curtains-Sheer','Curtains-Blockout'].forEach(k=>{defaultInstallCharges[k]=vCurt; localStorage.setItem('install-'+k,vCurt);});
+const vVer=parseOr(document.getElementById('install-Verishade'),defaultInstallCharges['Verishade']);
+defaultInstallCharges['Verishade']=vVer; localStorage.setItem('install-Verishade',vVer);
+const vSh=parseOr(document.getElementById('install-Shutters'),defaultInstallCharges['Shutters']);
+defaultInstallCharges['Shutters']=vSh; localStorage.setItem('install-Shutters',vSh);
+
+// Save logistics
+defaultLogisticsConfig.base=parseOr(document.getElementById('log-base'),defaultLogisticsConfig.base);
+defaultLogisticsConfig.mediumAdd=parseOr(document.getElementById('log-mediumAdd'),defaultLogisticsConfig.mediumAdd);
+defaultLogisticsConfig.largeAdd=parseOr(document.getElementById('log-largeAdd'),defaultLogisticsConfig.largeAdd);
+defaultLogisticsConfig.mediumWidthMm=parseOr(document.getElementById('log-mediumWidth'),defaultLogisticsConfig.mediumWidthMm);
+defaultLogisticsConfig.largeWidthMm=parseOr(document.getElementById('log-largeWidth'),defaultLogisticsConfig.largeWidthMm);
+localStorage.setItem('logisticsConfig',JSON.stringify(defaultLogisticsConfig));
+
+alert('✓ Settings saved!');
+document.getElementById('settingsPanel').classList.add('hidden');
+if(currentJob)updateLiveSummary();
+}
+
+function toggleSettings(){
+document.getElementById('settingsPanel').classList.toggle('hidden');
+}
+
+function updateFreightCarrier(){
+freightCarrier=document.getElementById('freight-carrier').value;
+localStorage.setItem('freightCarrier',freightCarrier);
+if(currentJob)currentJob.freightCarrier=freightCarrier;
+if(currentJob)updateLiveSummary();
+}
+
+function updateJobCount(){
+document.getElementById('jobCount').textContent=jobs.length;
+}
+
+function showTab(tab){
+document.getElementById('btnMeasure').classList.toggle('active',tab==='measure');
+document.getElementById('btnJobs').classList.toggle('active',tab==='saved');
+document.getElementById('viewMeasure').classList.toggle('hidden',tab!=='measure');
+document.getElementById('viewSaved').classList.toggle('hidden',tab!=='saved');
+if(tab==='saved')renderSavedJobs();
+}
+
+function startNewJob(){
+currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],windows:[],rates:{...defaultRates},multipliers:{...defaultMultipliers},freightCost:0,freightCarrier:freightCarrier};
+showingFinalDetails=false;
+document.getElementById('emptyState').classList.add('hidden');
+document.getElementById('jobForm').classList.remove('hidden');
+document.getElementById('windowsCard').classList.remove('hidden');
+document.getElementById('jobButtons').classList.remove('hidden');
+document.getElementById('clientName').value='';
+document.getElementById('address').value='';
+document.getElementById('phone').value='';
+document.getElementById('email').value='';
+updateWindowsDisplay();
+}
+
+function addWindow(){
+currentJob.windows.push({id:windowIdCounter++,room:'',windowNumber:'',type:'Blinds',subType:'Roller',fabricType:'Toorak',width:'',drop:'',recessFit:false,faceFit:false,ceilingFit:false,notes:'',midRailPosition:null,installOverride:'',logisticsOverride:''});
+updateWindowsDisplay();
+}
+
+function updateWindowsDisplay(){
+if(currentJob.windows.length===0){
+document.getElementById('emptyWindows').classList.remove('hidden');
+document.getElementById('windowsTable').classList.add('hidden');
+document.getElementById('liveSummary').classList.add('hidden');
+}else{
+document.getElementById('emptyWindows').classList.add('hidden');
+document.getElementById('windowsTable').classList.remove('hidden');
+renderWindows();
+updateLiveSummary();
+}
+}
+
+function renderWindows(){
+const tbody=document.getElementById('windowsBody');
+tbody.innerHTML='';
+currentJob.windows.forEach((w,index)=>{
+const width=parseFloat(w.width)||0;
+const drop=parseFloat(w.drop)||0;
+const areaCalc=w.type==='Curtains'?(width/1000):(width*drop/1000000);
+const areaText=w.type==='Curtains'?areaCalc.toFixed(2)+'m':areaCalc.toFixed(3)+'m²';
+const alertText=getAlert(w);
+let fitTypeHtml='';
+if(w.type==='Blinds'){
+fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.recessFit?'checked':''} onchange="updateWindowFit(${index},'recessFit',this.checked)" style="width:auto"> Recess</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.faceFit?'checked':''} onchange="updateWindowFit(${index},'faceFit',this.checked)" style="width:auto"> Face</label></div>`;
+}else if(w.type==='Curtains'||w.type==='Verishade'){
+fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.ceilingFit?'checked':''} onchange="updateWindowFit(${index},'ceilingFit',this.checked)" style="width:auto"> Ceiling</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.faceFit?'checked':''} onchange="updateWindowFit(${index},'faceFit',this.checked)" style="width:auto"> Face</label></div>`;
+}else if(w.type==='Shutters'){
+const midRailHtml=w.midRailPosition?`<div style="color:#10B981;font-size:11px;font-weight:600">✓ Mid Rail: ${w.midRailPosition}mm</div>`:'';
+fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><button class="btn btn-teal" style="padding:4px 8px;font-size:11px" onclick="editMidRail(${index})">⚙️ Mid Rail</button>${midRailHtml}</div>`;
+}else{
+fitTypeHtml='<span style="color:#9CA3AF">-</span>';
+}
+const row=document.createElement('tr');
+row.innerHTML=`<td><input type="text" value="${w.room||''}" onchange="updateWindowField(${index},'room',this.value)" placeholder="Room" style="width:120px;padding:8px"></td><td><input type="text" value="${w.windowNumber||''}" onchange="updateWindowField(${index},'windowNumber',this.value)" placeholder="W#" style="width:60px;padding:8px"></td><td><select onchange="updateWindowType(${index},this.value)" style="width:120px;padding:8px"><option ${w.type==='Blinds'?'selected':''}>Blinds</option><option ${w.type==='Curtains'?'selected':''}>Curtains</option><option ${w.type==='Verishade'?'selected':''}>Verishade</option><option ${w.type==='Shutters'?'selected':''}>Shutters</option></select></td><td><select onchange="updateWindowField(${index},'subType',this.value)" style="width:120px;padding:8px">${getSubTypeOptions(w.type,w.subType)}</select></td><td><input type="number" value="${w.width||''}" onchange="updateWindowField(${index},'width',this.value);checkMidRailRequired(${index})" placeholder="Width" style="width:90px;padding:8px"></td><td><input type="number" value="${w.drop||''}" onchange="updateWindowField(${index},'drop',this.value);checkMidRailRequired(${index})" placeholder="Drop" style="width:90px;padding:8px"></td><td>${fitTypeHtml}</td><td style="font-size:13px;font-weight:600;color:#7BCCC4">${width&&drop?areaText:'-'}</td><td>${alertText?`<span class="alert-badge">${alertText}</span>`:''}</td><td><input type="text" value="${w.notes||''}" onchange="updateWindowField(${index},'notes',this.value)" placeholder="Notes" style="width:120px;padding:8px"></td><td><button class="btn btn-red" style="padding:8px 12px;font-size:13px" onclick="deleteWindow(${index})">🗑️</button></td>`;
+tbody.appendChild(row);
+});
+}
+
+function editMidRail(index){checkMidRailRequired(index);}
+
+function getSubTypeOptions(type,selected){
+let options='';
+if(type==='Blinds'){
+['Roller','Trublockout','Vertical','Zebra','Venetian'].forEach(s=>{options+=`<option ${s===selected?'selected':''}>${s}</option>`;});
+}else if(type==='Curtains'){
+['Sheer','Blockout'].forEach(s=>{options+=`<option ${s===selected?'selected':''}>${s}</option>`;});
+}else{
+options=`<option>-</option>`;
+}
+return options;
+}
+
+function updateWindowType(index,type){
+currentJob.windows[index].type=type;
+currentJob.windows[index].subType=type==='Blinds'?'Roller':type==='Curtains'?'Sheer':'-';
+currentJob.windows[index].fabricType=getFabricTypeDefault(type,currentJob.windows[index].subType);
+currentJob.windows[index].recessFit=false;
+currentJob.windows[index].faceFit=false;
+currentJob.windows[index].ceilingFit=false;
+currentJob.windows[index].midRailPosition=null;
+updateWindowsDisplay();
+}
+
+function getFabricTypeDefault(type,subType){
+if(type==='Blinds'&&subType==='Roller')return 'Toorak';
+if(type==='Blinds'&&subType==='Vertical')return 'Category A';
+if(type==='Curtains'&&subType==='Sheer')return 'Group 1 - Most Trending';
+if(type==='Curtains'&&subType==='Blockout')return 'Group 1 - Nettex';
+if(type==='Verishade')return 'Category 1 - Wand';
+return '';
+}
+
+function updateWindowField(index,field,value){
+currentJob.windows[index][field]=value;
+renderWindows();
+updateLiveSummary();
+}
+
+function updateWindowFit(index,field,checked){
+currentJob.windows[index][field]=checked;
+}
+
+function deleteWindow(index){
+currentJob.windows.splice(index,1);
+updateWindowsDisplay();
+}
+
+
+function getInstallChargeForWindow(w){
+  const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+  // Allow per-window override (EX GST)
+  const override=parseFloat(w.installOverride);
+  if(!isNaN(override)) return override;
+  return defaultInstallCharges[key]??0;
+}
+
+function getLogisticsChargeForWindow(w){
+  // Allow per-window override (EX GST)
+  const override=parseFloat(w.logisticsOverride);
+  if(!isNaN(override)) return override;
+  const width=parseFloat(w.width)||0;
+  let extra=0;
+  if(width>=defaultLogisticsConfig.largeWidthMm) extra=defaultLogisticsConfig.largeAdd;
+  else if(width>=defaultLogisticsConfig.mediumWidthMm) extra=defaultLogisticsConfig.mediumAdd;
+  return (defaultLogisticsConfig.base||0)+extra;
+}
+
+
+function calculateTotals(job){
+let totals={};
+job.windows.forEach(w=>{
+const width=parseFloat(w.width)||0;
+const drop=parseFloat(w.drop)||0;
+if(width===0||drop===0)return;
+const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+if(!totals[key])totals[key]={totalWidth:0,sqm:0,supplyCost:0,markup:0,subtotal:0};
+totals[key].totalWidth+=width;
+const area=(width*drop)/1000000;
+if(w.type!=='Curtains')totals[key].sqm+=area;
+
+const unitQty=w.type==='Curtains'?(width/1000):area;
+const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key], parseNumberOr(defaultRates[key],0)));
+const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
+const supplyCost=unitQty*rate;
+const subtotal=supplyCost*multiplier;
+totals[key].supplyCost+=supplyCost;
+totals[key].markup+=(subtotal-supplyCost);
+totals[key].subtotal+=subtotal;
+});
+const freight=calculateFreight(job);
+
+// Allocate freight across items by "merit" (width-weighted).
+// Returns an array of per-window freight shares (EX GST), summing to total freight.
+function allocateFreightByMerit(windows,totalFreight){
+  const validIdx=[];
+  let totalWeight=0;
+  windows.forEach((w,i)=>{
+    const width=parseFloat(w.width)||0;
+    const drop=parseFloat(w.drop)||0;
+    if(width<=0||drop<=0) return;
+    validIdx.push(i);
+    // Weight by width (mm). Freight escalates with length/over-length.
+    totalWeight += Math.max(width,1);
+  });
+  const shares=new Array(windows.length).fill(0);
+  if(!totalFreight || totalFreight<=0 || validIdx.length===0) return shares;
+
+  // Work in cents to avoid rounding drift.
+  const totalCents=Math.round(totalFreight*100);
+  let allocatedCents=0;
+  for(let k=0;k<validIdx.length;k++){
+    const i=validIdx[k];
+    const w=windows[i];
+    const width=parseFloat(w.width)||0;
+    const weight=Math.max(width,1);
+    let cents;
+    if(k===validIdx.length-1){
+      // Last item gets the remainder.
+      cents = totalCents - allocatedCents;
+    }else{
+      cents = Math.round(totalCents * (weight/totalWeight));
+      allocatedCents += cents;
+    }
+    shares[i]=cents/100;
+  }
+  return shares;
+}
+
+const freightShares=allocateFreightByMerit(job.windows, freight);
+
+// Install & logistics (EX GST)
+let installTotal=0;
+let logisticsTotal=0;
+job.windows.forEach(w=>{
+  const width=parseFloat(w.width)||0;
+  const drop=parseFloat(w.drop)||0;
+  if(width===0||drop===0) return;
+  installTotal+=getInstallChargeForWindow(w);
+  logisticsTotal+=getLogisticsChargeForWindow(w);
+});
+
+const totalSupplyCost=Object.values(totals).reduce((sum,t)=>sum+t.supplyCost,0);
+const totalMarkup=Object.values(totals).reduce((sum,t)=>sum+t.markup,0);
+const subtotalBeforeExtras=totalSupplyCost+totalMarkup;
+const subtotalWithExtras=subtotalBeforeExtras+installTotal+logisticsTotal;
+// Total incl. freight (freight itself is still kept for internal reporting)
+const subtotalWithFreight=subtotalWithExtras+freight;
+
+const gst=subtotalWithFreight*GST_RATE;
+const total=subtotalWithFreight+gst;
+
+// Customer price "no markup" but including install/logistics/freight
+const customerPrice=(totalSupplyCost+installTotal+logisticsTotal+freight) * (1+GST_RATE);
+
+const freightPerProduct=job.windows.length>0?(freight/job.windows.length):0;
+
+return{totals,totalSupplyCost,totalMarkup,installTotal,logisticsTotal,subtotalBeforeExtras,subtotalWithExtras,freight,freightPerProduct,freightShares,subtotalWithFreight,gst,total,customerPrice};
+}
+
+function updateLiveSummary(){
+const calc=calculateTotals(currentJob);
+if(!calc||calc.totalSupplyCost===0){
+document.getElementById('liveSummary').classList.add('hidden');
+return;
+}
+document.getElementById('liveSummary').classList.remove('hidden');
+let html='<div class="summary-card"><h3 style="margin:0 0 15px 0">💰 Live Quote Summary</h3>';
+html+='<div class="summary-grid">';
+html+=`<div class="summary-box"><div class="summary-label">Supply Cost</div><div class="summary-value">$${calc.totalSupplyCost.toFixed(2)}</div></div>`;
+html+=`<div class="summary-box"><div class="summary-label">Customer (no markup)</div><div class="summary-value">$${calc.customerPrice.toFixed(2)}</div></div>`;
+html+=`<div class="summary-box" style="background:rgba(255,255,255,0.3)"><div class="summary-label">Quote Price</div><div class="summary-value">$${calc.total.toFixed(2)}</div></div>`;
+html+='</div>';
+html+=`<div style="margin-top:15px;font-size:14px;opacity:0.9">Markup: $${calc.totalMarkup.toFixed(2)} • Install: $${calc.installTotal.toFixed(2)} • Logistics: $${calc.logisticsTotal.toFixed(2)} • Freight: $${calc.freight.toFixed(2)} (${calc.freightPerProduct.toFixed(2)}/product) • GST: $${calc.gst.toFixed(2)}</div>`;
+html+='</div>';
+document.getElementById('liveSummary').innerHTML=html;
+}
+
+function showFinalDetails(){
+currentJob.clientName=document.getElementById('clientName').value;
+if(!currentJob.clientName){alert('Please enter client name');return;}
+if(currentJob.windows.length===0){alert('Please add at least one window');return;}
+for(let i=0;i<currentJob.windows.length;i++){if(!checkMidRailRequired(i))return;}
+currentJob.address=document.getElementById('address').value;
+currentJob.phone=document.getElementById('phone').value;
+currentJob.email=document.getElementById('email').value;
+currentJob.freightCarrier=freightCarrier;
+showingFinalDetails=true;
+document.getElementById('btnContinue').classList.add('hidden');
+document.getElementById('btnSave').classList.remove('hidden');
+document.getElementById('finalDetails').classList.remove('hidden');
+renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function renderPricingAdjustments(){
+const calc=calculateTotals(currentJob);
+
+// Render final summary
+let summaryHtml='<div class="summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px">';
+summaryHtml+=`<div style="background:linear-gradient(135deg,#E0F2FE 0%,#BAE6FD 100%);padding:20px;border-radius:10px;border:2px solid #0284C7"><div style="font-size:13px;color:#0369A1;font-weight:600;margin-bottom:8px">Supply Cost (EX GST)</div><div style="font-size:24px;font-weight:700;color:#0369A1">$${calc.totalSupplyCost.toFixed(2)}</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#FEF3C7 0%,#FDE68A 100%);padding:20px;border-radius:10px;border:2px solid #F59E0B"><div style="font-size:13px;color:#92400E;font-weight:600;margin-bottom:8px">Markup</div><div style="font-size:24px;font-weight:700;color:#92400E">$${calc.totalMarkup.toFixed(2)}</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#DBEAFE 0%,#BFDBFE 100%);padding:20px;border-radius:10px;border:2px solid #3B82F6"><div style="font-size:13px;color:#1E40AF;font-weight:600;margin-bottom:8px">Install (EX GST)</div><div style="font-size:24px;font-weight:700;color:#1E40AF">$${calc.installTotal.toFixed(2)}</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#FCE7F3 0%,#FBCFE8 100%);padding:20px;border-radius:10px;border:2px solid #EC4899"><div style="font-size:13px;color:#9F1239;font-weight:600;margin-bottom:8px">Logistics (EX GST)</div><div style="font-size:24px;font-weight:700;color:#9F1239">$${calc.logisticsTotal.toFixed(2)}</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#E0E7FF 0%,#C7D2FE 100%);padding:20px;border-radius:10px;border:2px solid #6366F1"><div style="font-size:13px;color:#3730A3;font-weight:600;margin-bottom:8px">Freight (EX GST)</div><div style="font-size:24px;font-weight:700;color:#3730A3">$${calc.freight.toFixed(2)}</div><div style="font-size:11px;color:#4F46E5;margin-top:4px">$${calc.freightPerProduct.toFixed(2)}/product</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#D1FAE5 0%,#A7F3D0 100%);padding:20px;border-radius:10px;border:2px solid #10B981"><div style="font-size:13px;color:#065F46;font-weight:600;margin-bottom:8px">GST</div><div style="font-size:24px;font-weight:700;color:#065F46">$${calc.gst.toFixed(2)}</div></div>`;
+summaryHtml+='</div>';
+
+summaryHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px">';
+summaryHtml+=`<div style="background:linear-gradient(135deg,#FFF7ED 0%,#FFEDD5 100%);padding:25px;border-radius:12px;border:3px solid #F97316"><div style="font-size:14px;color:#9A3412;font-weight:600;margin-bottom:10px">💵 Customer Price (no markup)</div><div style="font-size:32px;font-weight:700;color:#EA580C">$${calc.customerPrice.toFixed(2)}</div><div style="font-size:12px;color:#C2410C;margin-top:8px">Inc GST • No markup</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);padding:25px;border-radius:12px;border:3px solid #2D9A8E;box-shadow:0 4px 6px rgba(0,0,0,0.1)"><div style="font-size:14px;color:white;font-weight:600;margin-bottom:10px">💰 Quote Price (with markup)</div><div style="font-size:36px;font-weight:700;color:white">$${calc.total.toFixed(2)}</div><div style="font-size:12px;color:rgba(255,255,255,0.9);margin-top:8px">Inc GST • Presented to customer</div></div>`;
+summaryHtml+='</div>';
+
+document.getElementById('finalSummary').innerHTML=summaryHtml;
+
+// Render pricing adjustments table
+let html='<table class="price-table" style="width:100%;border-collapse:collapse">';
+html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Rate</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
+currentJob.windows.forEach((w,idx)=>{
+const key=getWindowKey(w);
+const unit=w.type==='Curtains'?'$/m':'$/m²';
+const currentRate=parseNumberOr(w.rateOverride,parseNumberOr(currentJob.rates[key],parseNumberOr(defaultRates[key],0)));
+const currentMult=parseNumberOr(w.multiplierOverride,parseNumberOr(currentJob.multipliers[key],parseNumberOr(defaultMultipliers[key],1.8)));
+const fabricOptions=getFabricOptions(w.type,w.subType);
+const fabricSelect=fabricOptions.length>0?`<select id="jobfabric-${idx}" onchange="updateJobFabric(${idx})" style="width:160px;padding:10px;border:2px solid #D1D5DB;border-radius:6px">${fabricOptions.map(f=>`<option value="${f}" ${w.fabricType===f?'selected':''}>${f}</option>`).join('')}</select>`:`<span style="color:#999">-</span>`;
+html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px">${fabricSelect}</td><td style="padding:12px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px"><input type="number" id="jobrate-${idx}" value="${currentRate}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${unit}</span></td><td style="padding:12px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
+});
+html+='</tbody></table>';
+html+=`<div class="freight-note" style="margin-top:15px">🔧 <strong>Install:</strong> $${calc.installTotal.toFixed(2)} • 🚚 <strong>Logistics:</strong> $${calc.logisticsTotal.toFixed(2)} (auto per item, editable above) • <strong>Freight carrier:</strong> $${calc.freight.toFixed(2)} total (distributed $${calc.freightPerProduct.toFixed(2)}/product)</div>`;
+document.getElementById('pricingAdjustments').innerHTML=html;
+}
+
+function getFabricOptions(type,subType){
+if(type==='Blinds'&&subType==='Roller')return Object.keys(PRICE_LISTS.rollerBlinds);
+if(type==='Blinds'&&subType==='Vertical')return Object.keys(PRICE_LISTS.verticalBlinds);
+if(type==='Curtains'&&subType==='Sheer')return Object.keys(PRICE_LISTS.curtainsSheer);
+if(type==='Curtains'&&subType==='Blockout')return Object.keys(PRICE_LISTS.curtainsBlockout);
+if(type==='Verishade')return Object.keys(PRICE_LISTS.verishade);
+return [];
+}
+
+function updateJobFabric(idx){
+const fabricType=document.getElementById('jobfabric-'+idx).value;
+currentJob.windows[idx].fabricType=fabricType;
+const w=currentJob.windows[idx];
+const key=getWindowKey(w);
+let newRate=0;
+if(w.type==='Blinds'&&w.subType==='Roller'){newRate=PRICE_LISTS.rollerBlinds[fabricType]||defaultRates[key];}
+else if(w.type==='Blinds'&&w.subType==='Vertical'){newRate=PRICE_LISTS.verticalBlinds[fabricType]||defaultRates[key];}
+else if(w.type==='Curtains'&&w.subType==='Sheer'){newRate=PRICE_LISTS.curtainsSheer[fabricType]||defaultRates[key];}
+else if(w.type==='Curtains'&&w.subType==='Blockout'){newRate=PRICE_LISTS.curtainsBlockout[fabricType]||defaultRates[key];}
+else if(w.type==='Verishade'){newRate=PRICE_LISTS.verishade[fabricType]||defaultRates[key];}
+else{newRate=defaultRates[key];}
+document.getElementById('jobrate-'+idx).value=newRate;
+currentJob.windows[idx].rateOverride=newRate;
+updateJobRates();
+}
+
+function updateJobRates(changedIdx=null){
+if(changedIdx!==null&&changedIdx!==undefined){
+  const w=currentJob.windows[changedIdx];
+  if(w){
+    const rateEl=document.getElementById('jobrate-'+changedIdx);
+    const multEl=document.getElementById('jobmult-'+changedIdx);
+    if(rateEl)w.rateOverride=parseNumberOr(rateEl.value,0);
+    if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
+  }
+}
+
+currentJob.windows.forEach((w,idx)=>{
+const rateEl=document.getElementById('jobrate-'+idx);
+const multEl=document.getElementById('jobmult-'+idx);
+if(rateEl)w.rateOverride=parseNumberOr(rateEl.value,0);
+if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
+});
+updateLiveSummary();
+renderPricingAdjustments();
+}
+
+function saveJob(){
+currentJob.savedAt=new Date().toISOString();
+currentJob.freightCost=calculateFreight(currentJob);
+if(currentEditingIndex!==null){
+jobs[currentEditingIndex]=currentJob;
+alert('✓ Job updated successfully!');
+currentEditingIndex=null;
+}else{
+jobs.push(currentJob);
+alert('✓ Job saved successfully!');
+}
+saveJobs();
+currentJob=null;
+showingFinalDetails=false;
+document.getElementById('emptyState').classList.remove('hidden');
+document.getElementById('jobForm').classList.add('hidden');
+document.getElementById('windowsCard').classList.add('hidden');
+document.getElementById('jobButtons').classList.add('hidden');
+document.getElementById('finalDetails').classList.add('hidden');
+document.getElementById('btnContinue').classList.remove('hidden');
+document.getElementById('btnSave').classList.add('hidden');
+showTab('saved');
+}
+
+function cancelJob(){
+if(confirm('Cancel this job? All data will be lost.')){
+currentJob=null;
+currentEditingIndex=null;
+showingFinalDetails=false;
+document.getElementById('emptyState').classList.remove('hidden');
+document.getElementById('jobForm').classList.add('hidden');
+document.getElementById('windowsCard').classList.add('hidden');
+document.getElementById('jobButtons').classList.add('hidden');
+document.getElementById('finalDetails').classList.add('hidden');
+document.getElementById('liveSummary').classList.add('hidden');
+document.getElementById('btnContinue').classList.remove('hidden');
+document.getElementById('btnSave').classList.add('hidden');
+}
+}
+
+function renderSavedJobs(){
+const container=document.getElementById('savedJobsList');
+if(jobs.length===0){
+container.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div><h3>No Saved Jobs</h3><p>Completed jobs will appear here</p></div>';
+return;
+}
+container.innerHTML='';
+jobs.slice().reverse().forEach((job,reverseIndex)=>{
+const index=jobs.length-1-reverseIndex;
+currentJob=job;
+const calc=calculateTotals(job);
+currentJob=null;
+const card=document.createElement('div');
+card.className='card';
+card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:15px"><div><h3 style="color:#1F2937;margin-bottom:8px">${job.clientName}</h3><p style="color:#6B7280;font-size:14px">${job.date} • ${job.windows.length} windows • $${calc.total.toFixed(2)}</p></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" style="padding:10px 16px;font-size:14px;background:#F59E0B;color:white;font-weight:600" onclick="editJob(${index})">✏️ Edit</button><button class="btn btn-teal" style="padding:10px 16px;font-size:14px" onclick="downloadJob(${index})">📥 Download</button><button class="btn" style="padding:10px 16px;font-size:14px;background:#13B5EA;color:white;font-weight:600" onclick="exportToXero(${index})">📤 Export to Xero</button><button class="btn btn-red" style="padding:10px 16px;font-size:14px" onclick="deleteJob(${index})">🗑️</button></div></div>`;
+container.appendChild(card);
+});
+}
+
+function editJob(index){
+const job=jobs[index];
+currentJob=JSON.parse(JSON.stringify(job));
+currentEditingIndex=index;
+showingFinalDetails=false;
+showTab('measure');
+document.getElementById('emptyState').classList.add('hidden');
+document.getElementById('jobForm').classList.remove('hidden');
+document.getElementById('windowsCard').classList.remove('hidden');
+document.getElementById('jobButtons').classList.remove('hidden');
+document.getElementById('finalDetails').classList.add('hidden');
+document.getElementById('btnContinue').classList.remove('hidden');
+document.getElementById('btnSave').classList.add('hidden');
+document.getElementById('clientName').value=currentJob.clientName||'';
+document.getElementById('address').value=currentJob.address||'';
+document.getElementById('phone').value=currentJob.phone||'';
+document.getElementById('email').value=currentJob.email||'';
+if(currentJob.windows.length>0){
+document.getElementById('emptyWindows').classList.add('hidden');
+document.getElementById('windowsTable').classList.remove('hidden');
+renderWindows();
+}
+updateLiveSummary();
+alert('✏️ Editing: '+job.clientName);
+}
+
+function deleteJob(index){
+if(confirm('Delete this job?')){
+jobs.splice(index,1);
+saveJobs();
+renderSavedJobs();
+}
+}
+
+function downloadJob(index){
+const job=jobs[index];
+currentJob=job;
+const calc=calculateTotals(job);
+currentJob=null;
+let txt='='.repeat(60)+'\n';
+txt+='           DECOVIBES MEASUREMENT REPORT\n';
+txt+='='.repeat(60)+'\n\n';
+txt+='CLIENT: '+job.clientName+'\n';
+if(job.address)txt+='ADDRESS: '+job.address+'\n';
+if(job.phone)txt+='PHONE: '+job.phone+'\n';
+if(job.email)txt+='EMAIL: '+job.email+'\n';
+txt+='DATE: '+job.date+'\n\n';
+txt+='-'.repeat(60)+'\n';
+txt+='WINDOWS:\n';
+txt+='-'.repeat(60)+'\n\n';
+job.windows.forEach((w,i)=>{
+txt+='Window '+(i+1)+':\n';
+if(w.room)txt+='  Room: '+w.room+'\n';
+if(w.windowNumber)txt+='  Window #: '+w.windowNumber+'\n';
+txt+='  Type: '+w.type+' - '+w.subType+'\n';
+if(w.fabricType)txt+='  Fabric: '+w.fabricType+'\n';
+if(w.color)txt+='  Color: '+w.color+'\n';
+txt+='  Dimensions: '+w.width+'mm × '+w.drop+'mm\n';
+if(w.midRailPosition)txt+='  Mid Rail Position: '+w.midRailPosition+'mm\n';
+const fits=[];
+if(w.recessFit)fits.push('Recess');
+if(w.faceFit)fits.push('Face');
+if(w.ceilingFit)fits.push('Ceiling');
+if(fits.length)txt+='  Fit: '+fits.join(', ')+'\n';
+if(w.notes)txt+='  Notes: '+w.notes+'\n';
+const alert=getAlert(w);
+if(alert)txt+='  Alert: '+alert+'\n';
+txt+='\n';
+});
+txt+='-'.repeat(60)+'\n';
+txt+='SUMMARY:\n';
+txt+='  Total Supply: $'+calc.totalSupplyCost.toFixed(2)+'\n';
+txt+='  Total Markup: $'+calc.totalMarkup.toFixed(2)+'\n';
+txt+='  Subtotal (Supply + Markup): $'+calc.subtotalBeforeExtras.toFixed(2)+'\n';
+txt+='  Install: $'+calc.installTotal.toFixed(2)+'\n';
+txt+='  Logistics: $'+calc.logisticsTotal.toFixed(2)+'\n';
+txt+='  Freight: $'+calc.freight.toFixed(2)+' ($'+calc.freightPerProduct.toFixed(2)+'/product)\n';
+txt+='  Subtotal + Extras + Freight: $'+calc.subtotalWithFreight.toFixed(2)+'\n';
+txt+='  GST (10%): $'+calc.gst.toFixed(2)+'\n';
+txt+='  TOTAL: $'+calc.total.toFixed(2)+'\n';
+txt+='  Customer Price (no markup): $'+calc.customerPrice.toFixed(2)+'\n';
+txt+='\n'+'='.repeat(60)+'\n';
+txt+='Generated: '+new Date().toLocaleString()+'\n';
+txt+='='.repeat(60)+'\n';
+const blob=new Blob([txt],{type:'text/plain'});
+const url=URL.createObjectURL(blob);
+const a=document.createElement('a');
+a.href=url;
+a.download='decovibes_'+job.clientName.replace(/\s+/g,'_')+'_'+job.date+'.txt';
+a.click();
+URL.revokeObjectURL(url);
+}
+
+window.addEventListener('online',()=>{document.getElementById('network-status').className='status online';document.getElementById('network-status').textContent='● Online';});
+window.addEventListener('offline',()=>{document.getElementById('network-status').className='status offline';document.getElementById('network-status').textContent='● Offline';});
+
+loadJobs();
+// Complete Xero Integration Code - Add before loadJobs();
+
+let xeroAccessToken=localStorage.getItem('xeroAccessToken');
+let xeroTenantId=localStorage.getItem('xeroTenantId');
+
+function connectXero(){
+// Client Secret must never be stored in the browser.
+// This starts OAuth server-side via Netlify Function, using environment variables.
+const clientId=document.getElementById('xeroClientId')?.value?.trim();
+if(clientId) localStorage.setItem('xeroClientId',clientId);
+window.location.href='/.netlify/functions/xero-auth-start';
+}
+
+async function handleXeroCallback(){
+const params=new URLSearchParams(window.location.search);
+const code=params.get('code');
+if(!code)return;
+const statusEl=document.getElementById('xeroStatus');
+if(statusEl)statusEl.innerHTML='<span style="color:#F59E0B">⏳ Connecting...</span>';
+try{
+const response=await fetch('/.netlify/functions/xero-auth',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+code
+})
+});
+const data=await response.json();
+if(data.error)throw new Error(data.error);
+xeroAccessToken=data.access_token;
+xeroTenantId=data.tenant_id;
+localStorage.setItem('xeroAccessToken',data.access_token);
+localStorage.setItem('xeroRefreshToken',data.refresh_token);
+localStorage.setItem('xeroTenantId',data.tenant_id);
+if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+data.tenant_name+'</span>';
+alert('✅ Connected to Xero!\n\nOrganization: '+data.tenant_name);
+window.history.replaceState({},document.title,window.location.pathname);
+}catch(err){
+if(statusEl)statusEl.innerHTML='<span style="color:#DC2626">❌ Failed</span>';
+alert('Connection failed:\n'+err.message);
+}
+}
+
+async function exportToXero(index){
+const job=jobs[index];
+if(!job)return;
+currentJob=job;
+const calc=calculateTotals(job);
+currentJob=null;
+if(!xeroAccessToken||!xeroTenantId){
+alert('⚠️ Please connect to Xero first!\n\nGo to Settings → Xero Integration');
+return;
+}
+const freightShares=calc.freightShares||[];
+const lineItems=job.windows.map((w,i)=>{
+const width=parseFloat(w.width)||0;
+const drop=parseFloat(w.drop)||0;
+const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key],parseNumberOr(defaultRates[key],0)));
+const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
+const area=w.type==='Curtains'?(width/1000):((width*drop)/1000000);
+// Hidden extras (install + logistics + allocated freight) are bundled into the UnitAmount.
+const install=getInstallChargeForWindow(w);
+const logistics=getLogisticsChargeForWindow(w);
+const freightShare=(freightShares[i]||0);
+const price=(area*rate*multiplier+install+logistics+freightShare).toFixed(2);
+let desc=`${w.room||'Window '+(i+1)} - ${w.type} ${w.subType}`;
+if(w.color)desc+=` (${w.color})`;
+if(w.fabricType)desc+=` - ${w.fabricType}`;
+desc+=`\n${width}mm x ${drop}mm`;
+const fits=[];
+if(w.recessFit)fits.push('Recess');
+if(w.faceFit)fits.push('Face');
+if(w.ceilingFit)fits.push('Ceiling');
+if(fits.length)desc+=` | ${fits.join(', ')}`;
+if(w.midRailPosition)desc+=` | Mid Rail: ${w.midRailPosition}mm`;
+if(w.notes)desc+=`\n${w.notes}`;
+return{Description:desc,Quantity:1,UnitAmount:parseFloat(price),TaxType:"OUTPUT"};
+});
+try{
+const response=await fetch('/.netlify/functions/xero-export',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+accessToken:xeroAccessToken,
+tenantId:xeroTenantId,
+job:{clientName:job.clientName,email:job.email,address:job.address,date:job.date,id:job.id},
+lineItems:lineItems
+})
+});
+const result=await response.json();
+if(!response.ok||result.error){
+throw new Error(result.error||result.details||'Export failed');
+}
+alert(`✅ Quote exported to Xero!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(2)}\n\n🎉 Check your Xero account!`);
+}catch(err){
+alert('❌ Export failed:\n\n'+err.message);
+}
+}
+
+window.addEventListener('load',()=>{
+handleXeroCallback();
+const clientId=localStorage.getItem('xeroClientId');
+if(clientId&&document.getElementById('xeroClientId'))document.getElementById('xeroClientId').value=clientId;
+// Client Secret is never stored in the browser.
+if(xeroAccessToken&&xeroTenantId){
+const statusEl=document.getElementById('xeroStatus');
+if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected</span>';
+}
+const redirectUriField=document.getElementById('currentRedirectUri');
+if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
+});
+</script>
+</body>
+</html>
