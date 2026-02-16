@@ -8,7 +8,13 @@ const CORS_HEADERS = {
 let storePromise = null;
 async function getStoreClient() {
   if (!storePromise) {
-    storePromise = import("@netlify/blobs").then((mod) => mod.getStore("measurement-pro"));
+    storePromise = import("@netlify/blobs").then((mod) =>
+      mod.getStore({
+        name: "measurement-pro",
+        siteID: process.env.NETLIFY_SITE_ID || process.env.SITE_ID,
+        token: process.env.NETLIFY_AUTH_TOKEN,
+      })
+    );
   }
   return storePromise;
 }
