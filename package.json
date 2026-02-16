@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Decovibes Measurement Pro with Xero Integration",
   "dependencies": {
+    "@netlify/blobs": "^9.0.0",
     "node-fetch": "^2.6.7"
   }
 }

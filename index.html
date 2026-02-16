@@ -16,6 +16,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .title{font-size:32px;font-weight:700;margin:0}
 .subtitle{font-size:14px;opacity:0.9;margin:5px 0 0 0}
 .nav-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.auth-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#F5EFE7 0%,#E8DED0 100%);z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:white;border-radius:14px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,0.15);width:100%;max-width:420px}
+.auth-title{color:#1F2937;font-size:28px;font-weight:700;margin-bottom:10px}
+.auth-subtitle{color:#6B7280;font-size:14px;margin-bottom:18px}
+.auth-error{color:#B91C1C;background:#FEE2E2;padding:10px;border-radius:8px;font-size:13px;margin-top:12px}
+.user-chip{background:rgba(255,255,255,0.2);color:white;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:600}
 .btn{padding:12px 24px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:16px;transition:all 0.2s}
 .btn-nav{background:rgba(255,255,255,0.2);color:white}
 .btn-nav.active{background:linear-gradient(135deg,#B8936D 0%,#9A7A57 100%)}
@@ -63,6 +69,17 @@ tr:hover{background:#F9FAFB}
 </style>
 </head>
 <body>
+<div id="authOverlay" class="auth-overlay">
+<div class="auth-card">
+<h2 class="auth-title">Employee Login</h2>
+<p class="auth-subtitle">Sign in to access shared jobs and Xero export.</p>
+<input type="email" id="loginEmail" placeholder="Email" style="margin-bottom:12px">
+<input type="password" id="loginPassword" placeholder="Password" style="margin-bottom:12px">
+<button class="btn btn-teal" style="width:100%" onclick="loginEmployee()">Sign In</button>
+<div id="loginError" class="auth-error hidden"></div>
+</div>
+</div>
+
 <div id="network-status" class="status online">● Online</div>
 
 <!-- Mid Rail Modal -->
@@ -94,6 +111,8 @@ tr:hover{background:#F9FAFB}
 </div>
 </div>
 <div class="nav-buttons">
+<span id="userChip" class="user-chip">Not logged in</span>
+<button id="btnLogout" class="btn btn-nav" onclick="logoutEmployee()">🚪 Logout</button>
 <button id="btnSettings" class="btn btn-nav" onclick="toggleSettings()">⚙️</button>
 <button id="btnMeasure" class="btn btn-nav active" onclick="showTab('measure')">📏 Measure</button>
 <button id="btnJobs" class="btn btn-nav" onclick="showTab('saved')">💾 Jobs (<span id="jobCount">0</span>)</button>
@@ -123,6 +142,24 @@ tr:hover{background:#F9FAFB}
 <span id="xeroStatus" style="font-weight:700;font-size:15px"></span>
 </div>
 </div>
+</div>
+
+<!-- Employee Access -->
+<div id="employeePanel" style="background:#ECFDF5;border:2px solid #10B981;padding:20px;border-radius:12px;margin-bottom:24px" class="hidden">
+<h4 style="color:#065F46;margin-bottom:12px;font-size:18px;font-weight:700">👥 Employee Access (Admin)</h4>
+<p style="color:#047857;font-size:13px;margin-bottom:14px">Create employee logins for your team.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+<input type="text" id="empName" placeholder="Full name">
+<input type="email" id="empEmail" placeholder="Email">
+<input type="password" id="empPassword" placeholder="Password (min 6)">
+<select id="empRole">
+<option value="employee">Employee</option>
+<option value="admin">Admin</option>
+</select>
+</div>
+<button class="btn btn-green" onclick="createEmployee()">+ Add Employee</button>
+<div id="employeeError" style="color:#B91C1C;font-size:13px;margin-top:8px"></div>
+<div id="employeeList" style="margin-top:14px"></div>
 </div>
 
 <!-- Install & Logistics -->
@@ -396,6 +433,9 @@ let windowIdCounter=1;
 let showingFinalDetails=false;
 let currentMidRailWindowIndex=null;
 let freightCarrier='betta';
+let authToken=localStorage.getItem('decovibes_auth_token')||'';
+let currentUser=null;
+let appInitialized=false;
 
 const PRICE_LISTS = {
   rollerBlinds: {'Vibe': 30, 'Kleen Screen 5%': 30, 'Kew': 33, 'Toorak': 37, 'Cottesloe': 37, 'Sanctuary': 37, 'Le-Reve': 43, 'Balmoral': 45, 'Linesque': 48, 'Cassette Zebra Classic': 110, 'Cassette Zebra Opera': 100, 'Cassette Zebra Modern': 100, 'Cassette Zebra Luxury': 100},
@@ -440,17 +480,6 @@ function normalizeDecimalInput(value){
   return String(value??'').replace(',', '.').trim();
 }
 
-function handleSettingsMultiplierBlur(el){
-  const normalized=normalizeDecimalInput(el?.value);
-  const parsed=parseFloat(normalized);
-  if(!normalized||Number.isNaN(parsed)){
-    el.value=el.dataset.lastValid||'1.8';
-    return;
-  }
-  el.value=String(parsed);
-  el.dataset.lastValid=el.value;
-}
-
 function handleJobMultiplierBlur(idx,el){
   const normalized=normalizeDecimalInput(el?.value);
   const parsed=parseFloat(normalized);
@@ -463,6 +492,195 @@ function handleJobMultiplierBlur(idx,el){
     el.value=String(parsed);
   }
   updateJobRates(idx);
+}
+
+function setAuthError(msg){
+const el=document.getElementById('loginError');
+if(!el)return;
+if(msg){
+el.textContent=msg;
+el.classList.remove('hidden');
+}else{
+el.textContent='';
+el.classList.add('hidden');
+}
+}
+
+function updateUserChip(){
+const chip=document.getElementById('userChip');
+if(!chip)return;
+if(currentUser){
+chip.textContent=`${currentUser.name||currentUser.email} (${currentUser.role})`;
+}else{
+chip.textContent='Not logged in';
+}
+}
+
+async function authFetch(url,options={}){
+const headers={...(options.headers||{})};
+if(authToken)headers.Authorization=`Bearer ${authToken}`;
+const response=await fetch(url,{...options,headers});
+if(response.status===401){
+logoutEmployee(true);
+throw new Error('Session expired. Please log in again.');
+}
+return response;
+}
+
+async function checkSession(){
+if(!authToken)return false;
+try{
+const response=await authFetch('/.netlify/functions/auth-session');
+if(!response.ok)return false;
+const data=await response.json();
+currentUser=data.user||null;
+if(!currentUser)return false;
+document.getElementById('authOverlay').classList.add('hidden');
+updateUserChip();
+if(currentUser.role==='admin')loadEmployees();
+return true;
+}catch(e){
+authToken='';
+currentUser=null;
+localStorage.removeItem('decovibes_auth_token');
+updateUserChip();
+return false;
+}
+}
+
+async function loginEmployee(){
+setAuthError('');
+const email=document.getElementById('loginEmail')?.value?.trim();
+const password=document.getElementById('loginPassword')?.value||'';
+if(!email||!password){
+setAuthError('Please enter email and password.');
+return;
+}
+try{
+const response=await fetch('/.netlify/functions/auth-login',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({email,password})
+});
+const data=await response.json();
+if(!response.ok||data.error)throw new Error(data.error||'Login failed');
+authToken=data.token;
+currentUser=data.user;
+localStorage.setItem('decovibes_auth_token',authToken);
+document.getElementById('authOverlay').classList.add('hidden');
+updateUserChip();
+if(!appInitialized){
+loadJobs();
+appInitialized=true;
+}
+if(currentUser.role==='admin')loadEmployees();
+}catch(err){
+setAuthError(err.message||'Login failed');
+}
+}
+
+function logoutEmployee(silent=false){
+authToken='';
+currentUser=null;
+jobs=[];
+updateJobCount();
+appInitialized=false;
+localStorage.removeItem('decovibes_auth_token');
+updateUserChip();
+const panel=document.getElementById('employeePanel');
+if(panel)panel.classList.add('hidden');
+document.getElementById('authOverlay').classList.remove('hidden');
+if(!silent)alert('Logged out');
+}
+
+async function loadEmployees(){
+const panel=document.getElementById('employeePanel');
+if(!panel)return;
+if(!currentUser||currentUser.role!=='admin'){
+panel.classList.add('hidden');
+return;
+}
+panel.classList.remove('hidden');
+try{
+const response=await authFetch('/.netlify/functions/employees-list');
+const data=await response.json();
+if(!response.ok||data.error)throw new Error(data.error||'Failed to load employees');
+const idSafe=v=>String(v).replace(/[^a-zA-Z0-9_-]/g,'_');
+const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const rows=(data.employees||[]).map(e=>{
+const sid=idSafe(e.id);
+const disabled=e.active===false;
+return `<div style="padding:10px 0;border-bottom:1px solid #D1FAE5">
+<div style="display:grid;grid-template-columns:1.2fr 1.5fr 120px 120px 170px 110px;gap:8px;align-items:center">
+<input id="emp-name-${sid}" value="${esc(e.name||'')}" ${disabled?'disabled':''} style="padding:8px;border:1px solid #A7F3D0;border-radius:6px">
+<div style="color:#065F46;font-size:13px">${esc(e.email)}</div>
+<select id="emp-role-${sid}" ${disabled?'disabled':''} style="padding:8px;border:1px solid #A7F3D0;border-radius:6px">
+<option value="employee" ${e.role==='employee'?'selected':''}>Employee</option>
+<option value="admin" ${e.role==='admin'?'selected':''}>Admin</option>
+</select>
+<select id="emp-active-${sid}" style="padding:8px;border:1px solid #A7F3D0;border-radius:6px">
+<option value="true" ${e.active!==false?'selected':''}>Active</option>
+<option value="false" ${e.active===false?'selected':''}>Disabled</option>
+</select>
+<input id="emp-pass-${sid}" type="password" placeholder="New password" style="padding:8px;border:1px solid #A7F3D0;border-radius:6px">
+<button class="btn btn-teal" style="padding:8px 10px;font-size:13px" onclick="updateEmployee('${e.id}','${sid}')">Update</button>
+</div>
+</div>`;
+}).join('');
+document.getElementById('employeeList').innerHTML=rows||'<p style="color:#047857">No employees found.</p>';
+}catch(err){
+document.getElementById('employeeList').innerHTML='<p style="color:#B91C1C">'+err.message+'</p>';
+}
+}
+
+async function updateEmployee(id,sid){
+document.getElementById('employeeError').textContent='';
+const name=document.getElementById('emp-name-'+sid)?.value?.trim();
+const role=document.getElementById('emp-role-'+sid)?.value||'employee';
+const active=(document.getElementById('emp-active-'+sid)?.value||'true')==='true';
+const password=document.getElementById('emp-pass-'+sid)?.value||'';
+try{
+const response=await authFetch('/.netlify/functions/employees-update',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({id,name,role,active,password})
+});
+const data=await response.json();
+if(!response.ok||data.error)throw new Error(data.error||'Failed to update employee');
+const passEl=document.getElementById('emp-pass-'+sid);
+if(passEl)passEl.value='';
+await loadEmployees();
+}catch(err){
+document.getElementById('employeeError').textContent=err.message;
+}
+}
+
+async function createEmployee(){
+document.getElementById('employeeError').textContent='';
+const name=document.getElementById('empName')?.value?.trim();
+const email=document.getElementById('empEmail')?.value?.trim();
+const password=document.getElementById('empPassword')?.value||'';
+const role=document.getElementById('empRole')?.value||'employee';
+if(!email||!password){
+document.getElementById('employeeError').textContent='Email and password are required.';
+return;
+}
+try{
+const response=await authFetch('/.netlify/functions/employees-create',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({name,email,password,role})
+});
+const data=await response.json();
+if(!response.ok||data.error)throw new Error(data.error||'Failed to create employee');
+document.getElementById('empName').value='';
+document.getElementById('empEmail').value='';
+document.getElementById('empPassword').value='';
+document.getElementById('empRole').value='employee';
+await loadEmployees();
+}catch(err){
+document.getElementById('employeeError').textContent=err.message;
+}
 }
 
 function calculateFreight(jobObj=currentJob){
@@ -524,11 +742,33 @@ closeMidRailModal();
 renderWindows();
 }
 
+async function fetchCloudJobs(){
+try{
+const response=await authFetch('/.netlify/functions/jobs-list');
+if(!response.ok)return false;
+const data=await response.json();
+if(!Array.isArray(data.jobs))return false;
+if(data.jobs.length===0&&Array.isArray(jobs)&&jobs.length>0){
+await Promise.all(jobs.map(job=>upsertJobCloud(job)));
+}else{
+jobs=data.jobs;
+localStorage.setItem('decovibes_jobs',JSON.stringify(jobs));
+updateJobCount();
+if(!document.getElementById('viewSaved').classList.contains('hidden'))renderSavedJobs();
+}
+return true;
+}catch(e){
+return false;
+}
+}
+
 function loadJobs(){
 const saved=localStorage.getItem('decovibes_jobs');
 if(saved){try{jobs=JSON.parse(saved)}catch(e){jobs=[]}}
 updateJobCount();
 loadSettings();
+fetchCloudJobs();
+refreshXeroStatus();
 }
 
 
@@ -554,6 +794,28 @@ localStorage.setItem('decovibes_jobs',JSON.stringify(jobs));
 updateJobCount();
 }
 
+async function upsertJobCloud(job){
+if(!job||(!job.id&&job.id!==0))return;
+try{
+await authFetch('/.netlify/functions/jobs-upsert',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({job})
+});
+}catch(e){}
+}
+
+async function deleteJobCloud(id){
+if(id===undefined||id===null)return;
+try{
+await authFetch('/.netlify/functions/jobs-delete',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({id})
+});
+}catch(e){}
+}
+
 function loadSettings(){
 Object.keys(defaultRates).forEach(key=>{
 const saved=localStorage.getItem('rate-'+key);
@@ -573,7 +835,6 @@ if(saved!==null){
 const el=document.getElementById('mult-'+key);
 if(el){
   el.value=parseNumberOr(defaultMultipliers[key],1.8);
-  el.dataset.lastValid=String(el.value);
 }
 });
 const savedFreight=localStorage.getItem('freightCarrier')||'betta';
@@ -671,14 +932,12 @@ if(normalized===''){
 const parsed=parseFloat(normalized);
 if(Number.isNaN(parsed)){
   el.value=String(defaultMultipliers[key]);
-  el.dataset.lastValid=el.value;
   return;
 }
 el.value=normalized;
 const val=parsed;
 defaultMultipliers[key]=val;
 localStorage.setItem('mult-'+key,val);
-el.dataset.lastValid=String(val);
 }
 });
 const selectedFreight=document.getElementById('freight-carrier')?.value||'betta';
@@ -1080,18 +1339,19 @@ updateLiveSummary();
 renderPricingAdjustments();
 }
 
-function saveJob(){
+async function saveJob(){
 currentJob.savedAt=new Date().toISOString();
 currentJob.freightCost=calculateFreight(currentJob);
+const jobToPersist=JSON.parse(JSON.stringify(currentJob));
 if(currentEditingIndex!==null){
 jobs[currentEditingIndex]=currentJob;
-alert('✓ Job updated successfully!');
 currentEditingIndex=null;
 }else{
 jobs.push(currentJob);
-alert('✓ Job saved successfully!');
 }
 saveJobs();
+await upsertJobCloud(jobToPersist);
+alert('✓ Job saved to cloud successfully!');
 currentJob=null;
 showingFinalDetails=false;
 document.getElementById('emptyState').classList.remove('hidden');
@@ -1165,10 +1425,12 @@ updateLiveSummary();
 alert('✏️ Editing: '+job.clientName);
 }
 
-function deleteJob(index){
+async function deleteJob(index){
 if(confirm('Delete this job?')){
+const id=jobs[index]?.id;
 jobs.splice(index,1);
 saveJobs();
+await deleteJobCloud(id);
 renderSavedJobs();
 }
 }
@@ -1235,198 +1497,138 @@ URL.revokeObjectURL(url);
 window.addEventListener('online',()=>{document.getElementById('network-status').className='status online';document.getElementById('network-status').textContent='● Online';});
 window.addEventListener('offline',()=>{document.getElementById('network-status').className='status offline';document.getElementById('network-status').textContent='● Offline';});
 
+function connectXero(){
+if(!authToken){alert('Please login first');return;}
+window.location.href='/.netlify/functions/xero-auth-start?token='+encodeURIComponent(authToken);
+}
+
+async function refreshXeroStatus(){
+const statusEl=document.getElementById('xeroStatus');
+if(!statusEl)return false;
+try{
+const response=await authFetch('/.netlify/functions/xero-status');
+const data=await response.json();
+if(!response.ok||data.error)throw new Error(data.error||'Status check failed');
+if(data.connected){
+statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
+return true;
+}
+statusEl.innerHTML='<span style="color:#DC2626">✖ Not connected</span>';
+return false;
+}catch(err){
+statusEl.innerHTML='<span style="color:#F59E0B">⚠ Unable to check status</span>';
+return false;
+}
+}
+
+async function handleXeroCallback(){
+const params=new URLSearchParams(window.location.search);
+const code=params.get('code');
+const error=params.get('error');
+if(error){
+alert('Xero connection cancelled or failed: '+error);
+window.history.replaceState({},document.title,window.location.pathname);
+await refreshXeroStatus();
+return;
+}
+if(!code)return;
+const statusEl=document.getElementById('xeroStatus');
+if(statusEl)statusEl.innerHTML='<span style="color:#F59E0B">⏳ Connecting...</span>';
+try{
+const response=await authFetch('/.netlify/functions/xero-auth',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+code
+})
+});
+const data=await response.json();
+if(data.error)throw new Error(data.error);
+if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
+alert('✅ Connected to Xero!\n\nOrganization: '+data.tenant_name);
+window.history.replaceState({},document.title,window.location.pathname);
+await refreshXeroStatus();
+}catch(err){
+if(statusEl)statusEl.innerHTML='<span style="color:#DC2626">❌ Failed</span>';
+alert('Connection failed:\n'+err.message);
+}
+}
+
+async function exportToXero(index){
+const job=jobs[index];
+if(!job)return;
+currentJob=job;
+const calc=calculateTotals(job);
+currentJob=null;
+const connected=await refreshXeroStatus();
+if(!connected){
+alert('⚠️ Please connect to Xero first!\n\nGo to Settings → Xero Integration');
+return;
+}
+const freightShares=calc.freightShares||[];
+const lineItems=job.windows.map((w,i)=>{
+const width=parseFloat(w.width)||0;
+const drop=parseFloat(w.drop)||0;
+const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key],parseNumberOr(defaultRates[key],0)));
+const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
+const area=w.type==='Curtains'?(width/1000):((width*drop)/1000000);
+// Hidden extras (install + logistics + allocated freight) are bundled into the UnitAmount.
+const install=getInstallChargeForWindow(w);
+const logistics=getLogisticsChargeForWindow(w);
+const freightShare=(freightShares[i]||0);
+const price=(area*rate*multiplier+install+logistics+freightShare).toFixed(2);
+let desc=`${w.room||'Window '+(i+1)} - ${w.type} ${w.subType}`;
+if(w.color)desc+=` (${w.color})`;
+if(w.fabricType)desc+=` - ${w.fabricType}`;
+desc+=`\n${width}mm x ${drop}mm`;
+const fits=[];
+if(w.recessFit)fits.push('Recess');
+if(w.faceFit)fits.push('Face');
+if(w.ceilingFit)fits.push('Ceiling');
+if(fits.length)desc+=` | ${fits.join(', ')}`;
+if(w.midRailPosition)desc+=` | Mid Rail: ${w.midRailPosition}mm`;
+if(w.notes)desc+=`\n${w.notes}`;
+return{Description:desc,Quantity:1,UnitAmount:parseFloat(price),TaxType:"OUTPUT"};
+});
+try{
+const response=await authFetch('/.netlify/functions/xero-export',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+job:{clientName:job.clientName,email:job.email,address:job.address,date:job.date,id:job.id},
+lineItems:lineItems
+})
+});
+const result=await response.json();
+if(!response.ok||result.error){
+throw new Error(result.error||result.details||'Export failed');
+}
+alert(`✅ Quote exported to Xero!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(2)}\n\n🎉 Check your Xero account!`);
+}catch(err){
+alert('❌ Export failed:\n\n'+err.message);
+}
+}
+
+window.addEventListener('load',()=>{
+handleXeroCallback();
+const redirectUriField=document.getElementById('currentRedirectUri');
+if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
+['loginEmail','loginPassword'].forEach(id=>{
+const el=document.getElementById(id);
+if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter')loginEmployee();});
+});
+updateUserChip();
+checkSession().then(ok=>{
+if(ok){
+if(!appInitialized){
 loadJobs();
-  // Keep your existing app initialization
-  loadJobs();
-
-  // -----------------------------
-  // XERO (NEW CLEAN INTEGRATION)
-  // -----------------------------
-
-  // Always read latest values (your xero-callback.html saves these keys)
-  function getXeroAccessToken() {
-    return localStorage.getItem("xero_access_token");
-  }
-  function getXeroTenantId() {
-    return localStorage.getItem("xero_tenant_id");
-  }
-
-  // Connect button should always go to the correct function
-  function connectXero() {
-    window.location.href = "/.netlify/functions/xeroAuth";
-  }
-
-  // If you have a status element, update it
-  function refreshXeroStatus() {
-    const statusEl = document.getElementById("xeroStatus");
-    const t = getXeroAccessToken();
-    const tenant = getXeroTenantId();
-    if (!statusEl) return;
-
-    if (t && tenant) {
-      statusEl.innerHTML = '<span style="color:#10B981">✓ Connected to Xero</span>';
-    } else {
-      statusEl.innerHTML = '<span style="color:#DC2626">✖ Not connected</span>';
-    }
-  }
-
-  // Make ANY "Connect to Xero" button/link go to /.netlify/functions/xeroAuth
-  (function forceXeroConnectLink() {
-    const XERO_AUTH_PATH = "/.netlify/functions/xeroAuth";
-
-    function matchesConnectText(el) {
-      const t = (el.textContent || "").toLowerCase().replace(/\s+/g, " ").trim();
-      return t.includes("connect to xero") || t === "connect xero" || t.includes("xero connect");
-    }
-
-    function wireElement(el) {
-      if (el.tagName === "A") el.setAttribute("href", XERO_AUTH_PATH);
-      el.addEventListener(
-        "click",
-        function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          window.location.href = XERO_AUTH_PATH;
-        },
-        true
-      );
-    }
-
-    function scanAndWire() {
-      const candidates = [
-        ...document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]'),
-      ];
-      const targets = candidates.filter((el) => {
-        const idClass = ((el.id || "") + " " + (el.className || "")).toLowerCase();
-        if (idClass.includes("xero")) return true;
-        return matchesConnectText(el);
-      });
-      targets.forEach(wireElement);
-    }
-
-    scanAndWire();
-    setTimeout(scanAndWire, 500);
-    setTimeout(scanAndWire, 1500);
-    setTimeout(scanAndWire, 3000);
-  })();
-
-  // -----------------------------
-  // EXPORT QUOTE TO XERO (DRAFT QUOTE)
-  // Uses your existing "Export to Xero" button: onclick="exportToXero(index)"
-  // -----------------------------
-  async function exportToXero(index) {
-    const job = jobs[index];
-    if (!job) return;
-
-    const accessToken = getXeroAccessToken();
-    const tenantId = getXeroTenantId();
-
-    if (!accessToken || !tenantId) {
-      alert("⚠️ Please connect to Xero first!");
-      return;
-    }
-
-    const calc = calculateTotals(job);
-    const freightShares = calc.freightShares || [];
-
-    const lineItems = job.windows
-      .map((w, i) => {
-        const width = parseFloat(w.width) || 0;
-        const drop = parseFloat(w.drop) || 0;
-        if (width <= 0 || drop <= 0) return null;
-
-        const key =
-          w.type === "Blinds"
-            ? `Blinds-${w.subType}`
-            : w.type === "Curtains"
-            ? `Curtains-${w.subType}`
-            : w.type;
-
-        const rate = parseNumberOr(
-          w.rateOverride,
-          parseNumberOr(job.rates?.[key], parseNumberOr(defaultRates[key], 0))
-        );
-        const multiplier = parseNumberOr(
-          w.multiplierOverride,
-          parseNumberOr(job.multipliers?.[key], 1)
-        );
-
-        const qtyUnit = w.type === "Curtains" ? width / 1000 : (width * drop) / 1000000;
-
-        // Hidden extras bundled into UnitAmount (your preferred method)
-        const install = getInstallChargeForWindow(w);
-        const logistics = getLogisticsChargeForWindow(w);
-        const freightShare = freightShares[i] || 0;
-
-        const unitAmount = qtyUnit * rate * multiplier + install + logistics + freightShare;
-
-        let desc = `${w.room || "Window " + (i + 1)} - ${w.type} ${w.subType}`;
-        if (w.color) desc += ` (${w.color})`;
-        if (w.fabricType) desc += ` - ${w.fabricType}`;
-        desc += `\n${width}mm x ${drop}mm`;
-
-        const fits = [];
-        if (w.recessFit) fits.push("Recess");
-        if (w.faceFit) fits.push("Face");
-        if (w.ceilingFit) fits.push("Ceiling");
-        if (fits.length) desc += ` | ${fits.join(", ")}`;
-        if (w.midRailPosition) desc += ` | Mid Rail: ${w.midRailPosition}mm`;
-        if (w.notes) desc += `\n${w.notes}`;
-
-        return {
-          description: desc,
-          quantity: 1,
-          unitAmount: Number(unitAmount.toFixed(2)),
-          taxType: "OUTPUT",
-        };
-      })
-      .filter(Boolean);
-
-    if (lineItems.length === 0) {
-      alert("No valid windows to export (missing width/drop).");
-      return;
-    }
-
-    const payload = {
-      contactName: job.clientName || "Customer",
-      contactEmail: job.email || "",
-      contactPhone: job.phone || "",
-      quoteNumber: `DV-${String(job.id).slice(-6)}`,
-      reference: job.address || "",
-      summary: "Decovibes Quote",
-      date: job.date || new Date().toISOString().slice(0, 10),
-      expiryDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-      lineItems,
-    };
-
-    const res = await fetch("/.netlify/functions/xeroCreateQuote", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "xero-tenant-id": tenantId,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      console.error(text);
-      alert("❌ Export failed:\n\n" + text);
-      return;
-    }
-
-    alert(
-      `✅ Quote created in Xero (Draft)!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(
-        2
-      )}\n\nCheck Xero → Quotes`
-    );
-  }
-
-  // On load update status
-  window.addEventListener("load", () => {
-    refreshXeroStatus();
-  });
+appInitialized=true;
+}
+refreshXeroStatus();
+}
+});
+});
 </script>
 </body>
 </html>
