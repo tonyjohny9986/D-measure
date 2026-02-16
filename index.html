@@ -1596,7 +1596,7 @@ const response=await authFetch('/.netlify/functions/xero-export',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({
-job:{clientName:job.clientName,email:job.email,address:job.address,date:job.date,id:job.id},
+job:{clientName:job.clientName,email:job.email,phone:job.phone,address:job.address,date:job.date,id:job.id},
 lineItems:lineItems
 })
 });

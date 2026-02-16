@@ -41,6 +41,48 @@ async function refreshAccessTokenIfNeeded(tokenRecord, clientId, clientSecret) {
   return updated;
 }
 
+async function upsertContact({ accessToken, tenantId, job }) {
+  const contactPayload = {
+    Contacts: [
+      {
+        Name: job.clientName,
+        EmailAddress: job.email || undefined,
+        Phones: job.phone
+          ? [
+              {
+                PhoneType: "MOBILE",
+                PhoneNumber: job.phone,
+              },
+            ]
+          : undefined,
+      },
+    ],
+  };
+
+  const contactResponse = await fetch("https://api.xero.com/api.xro/2.0/Contacts", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Xero-tenant-id": tenantId,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(contactPayload),
+  });
+
+  const text = await contactResponse.text();
+  if (!contactResponse.ok) {
+    throw new Error(`Failed to sync contact: ${text}`);
+  }
+
+  const json = text ? JSON.parse(text) : {};
+  const contact = json?.Contacts?.[0];
+  if (!contact?.ContactID) {
+    throw new Error("Failed to get ContactID from Xero");
+  }
+  return contact.ContactID;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS_HEADERS, body: '' };
@@ -76,13 +118,14 @@ exports.handler = async (event) => {
     const token = await refreshAccessTokenIfNeeded(stored, clientId, clientSecret);
     const accessToken = token.access_token;
     const tenantId = token.tenant_id;
+    const contactId = await upsertContact({ accessToken, tenantId, job });
 
     console.log('Creating quote for:', job.clientName);
 
     // Create Quote - Xero will auto-create contact if it doesn't exist
     const quoteData = {
       Contact: { 
-        Name: job.clientName
+        ContactID: contactId
       },
       Date: job.date,
       ExpiryDate: job.date,
