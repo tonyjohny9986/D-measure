@@ -1,7 +1,3 @@
-const { getStore } = require("@netlify/blobs");
-
-const store = getStore("measurement-pro");
-
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
@@ -9,17 +5,26 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+let storePromise = null;
+async function getStoreClient() {
+  if (!storePromise) {
+    storePromise = import("@netlify/blobs").then((mod) => mod.getStore("measurement-pro"));
+  }
+  return storePromise;
+}
+
 async function getJson(key, fallback) {
+  const store = await getStoreClient();
   const raw = await store.get(key, { type: "json" });
   return raw === null || raw === undefined ? fallback : raw;
 }
 
 async function setJson(key, value) {
+  const store = await getStoreClient();
   await store.setJSON(key, value);
 }
 
 module.exports = {
-  store,
   CORS_HEADERS,
   getJson,
   setJson,
