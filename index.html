@@ -142,6 +142,29 @@ tr:hover{background:#F9FAFB}
 <span id="xeroStatus" style="font-weight:700;font-size:15px"></span>
 </div>
 </div>
+
+<div style="background:white;border:2px solid #BFDBFE;border-radius:10px;padding:20px;margin-top:20px;max-width:700px">
+<h5 style="color:#1D4ED8;margin-bottom:12px;font-size:16px;font-weight:700">Quote Export Defaults</h5>
+<div style="display:grid;gap:14px">
+<div>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:6px">Xero Branding Theme</label>
+<select id="quoteBrandingTheme" style="width:100%;max-width:320px;padding:12px;border:2px solid #93C5FD;border-radius:8px;font-size:14px">
+<option value="">Use Xero default theme</option>
+</select>
+<p id="quoteBrandingThemeStatus" style="color:#6B7280;font-size:12px;margin-top:6px">Theme list loads from Xero.</p>
+</div>
+<div>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:6px">Expiry Days</label>
+<input type="number" id="quoteExpiryDays" min="0" step="1" placeholder="7" style="width:140px;padding:12px;border:2px solid #93C5FD;border-radius:8px;font-size:14px">
+<p style="color:#6B7280;font-size:12px;margin-top:6px">Added to quote date when exporting to Xero.</p>
+</div>
+<div>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:6px">Terms & Conditions</label>
+<textarea id="quoteTerms" rows="5" placeholder="Enter default quote terms for Xero exports" style="width:100%;padding:12px;border:2px solid #93C5FD;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical"></textarea>
+<p style="color:#6B7280;font-size:12px;margin-top:6px">Leave blank to let Xero/theme defaults apply if available.</p>
+</div>
+</div>
+</div>
 </div>
 
 <!-- Employee Access -->
@@ -466,6 +489,11 @@ const defaultFreightConfig={
   betta:{base:25,perMeter:0,thresholdM:6,overLength:30},
   couriers:{base:35,perMeter:0,thresholdM:6,overLength:40}
 };
+let xeroBrandingThemes=[];
+let xeroDefaultBrandingThemeId='';
+let defaultQuoteBrandingThemeId='';
+let defaultQuoteExpiryDays=7;
+let defaultQuoteTerms='';
 
 function getWindowKey(w){
   return w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
@@ -478,6 +506,30 @@ function parseNumberOr(value,fallback){
 
 function normalizeDecimalInput(value){
   return String(value??'').replace(',', '.').trim();
+}
+
+function renderBrandingThemeOptions(){
+const select=document.getElementById('quoteBrandingTheme');
+if(!select)return;
+let html='<option value="">Use Xero default theme</option>';
+xeroBrandingThemes.forEach(function(theme){
+  const selectedThemeId=defaultQuoteBrandingThemeId||'';
+  const selected=theme.id===selectedThemeId?' selected':'';
+  html+='<option value="'+theme.id+'"'+selected+'>'+theme.name+'</option>';
+});
+select.innerHTML=html;
+if(defaultQuoteBrandingThemeId){
+  select.value=defaultQuoteBrandingThemeId;
+}else{
+  select.value='';
+}
+}
+
+function setBrandingThemeStatus(message,color){
+const el=document.getElementById('quoteBrandingThemeStatus');
+if(!el)return;
+el.textContent=message;
+el.style.color=color||'#6B7280';
 }
 
 function handleJobMultiplierBlur(idx,el){
@@ -856,6 +908,20 @@ if(savedFreightConfig){
     }
   }catch(e){}
 }
+const savedQuoteExpiryDays=localStorage.getItem('quoteExpiryDays');
+if(savedQuoteExpiryDays!==null){
+  const parsed=parseInt(savedQuoteExpiryDays,10);
+  if(!Number.isNaN(parsed)&&parsed>=0)defaultQuoteExpiryDays=parsed;
+}
+const savedQuoteBrandingThemeId=localStorage.getItem('quoteBrandingThemeId');
+if(savedQuoteBrandingThemeId!==null)defaultQuoteBrandingThemeId=savedQuoteBrandingThemeId;
+renderBrandingThemeOptions();
+const quoteExpiryEl=document.getElementById('quoteExpiryDays');
+if(quoteExpiryEl)quoteExpiryEl.value=defaultQuoteExpiryDays;
+const savedQuoteTerms=localStorage.getItem('quoteTerms');
+if(savedQuoteTerms!==null)defaultQuoteTerms=savedQuoteTerms;
+const quoteTermsEl=document.getElementById('quoteTerms');
+if(quoteTermsEl)quoteTermsEl.value=defaultQuoteTerms;
 const freightMap={
   'freight-betta-base':defaultFreightConfig.betta.base,
   'freight-betta-perMeter':defaultFreightConfig.betta.perMeter,
@@ -943,6 +1009,23 @@ localStorage.setItem('mult-'+key,val);
 const selectedFreight=document.getElementById('freight-carrier')?.value||'betta';
 freightCarrier=selectedFreight;
 localStorage.setItem('freightCarrier',selectedFreight);
+const quoteBrandingThemeEl=document.getElementById('quoteBrandingTheme');
+if(quoteBrandingThemeEl){
+  defaultQuoteBrandingThemeId=quoteBrandingThemeEl.value||'';
+  localStorage.setItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
+}
+const quoteExpiryEl=document.getElementById('quoteExpiryDays');
+if(quoteExpiryEl){
+  const parsed=parseInt(quoteExpiryEl.value,10);
+  defaultQuoteExpiryDays=(!Number.isNaN(parsed)&&parsed>=0)?parsed:defaultQuoteExpiryDays;
+  quoteExpiryEl.value=String(defaultQuoteExpiryDays);
+  localStorage.setItem('quoteExpiryDays',defaultQuoteExpiryDays);
+}
+const quoteTermsEl=document.getElementById('quoteTerms');
+if(quoteTermsEl){
+  defaultQuoteTerms=quoteTermsEl.value||'';
+  localStorage.setItem('quoteTerms',defaultQuoteTerms);
+}
 defaultFreightConfig.betta.base=parseOr(document.getElementById('freight-betta-base'),defaultFreightConfig.betta.base);
 defaultFreightConfig.betta.perMeter=parseOr(document.getElementById('freight-betta-perMeter'),defaultFreightConfig.betta.perMeter);
 defaultFreightConfig.betta.thresholdM=parseOr(document.getElementById('freight-betta-threshold'),defaultFreightConfig.betta.thresholdM);
@@ -1511,13 +1594,43 @@ const data=await response.json();
 if(!response.ok||data.error)throw new Error(data.error||'Status check failed');
 if(data.connected){
 statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
+loadBrandingThemes();
 return true;
 }
 statusEl.innerHTML='<span style="color:#DC2626">✖ Not connected</span>';
+setBrandingThemeStatus('Connect Xero to load branding themes.','#6B7280');
 return false;
 }catch(err){
 statusEl.innerHTML='<span style="color:#F59E0B">⚠ Unable to check status</span>';
+setBrandingThemeStatus('Unable to load branding themes until Xero connection is available.','#B45309');
 return false;
+}
+}
+
+async function loadBrandingThemes(){
+const select=document.getElementById('quoteBrandingTheme');
+if(!select)return;
+setBrandingThemeStatus('Loading themes from Xero...','#1D4ED8');
+try{
+  const response=await authFetch('/.netlify/functions/xero-branding-themes');
+  const data=await response.json();
+  if(!response.ok||data.error)throw new Error(data.error||'Failed to load branding themes');
+  xeroBrandingThemes=Array.isArray(data.themes)?data.themes:[];
+  xeroDefaultBrandingThemeId=data.defaultThemeId||'';
+  if(!defaultQuoteBrandingThemeId&&xeroDefaultBrandingThemeId){
+    defaultQuoteBrandingThemeId=xeroDefaultBrandingThemeId;
+    localStorage.setItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
+  }
+  renderBrandingThemeOptions();
+  if(xeroBrandingThemes.length){
+    setBrandingThemeStatus('Using Xero branding themes for export.','#065F46');
+  }else{
+    setBrandingThemeStatus('No Xero branding themes found.','#6B7280');
+  }
+}catch(err){
+  xeroBrandingThemes=[];
+  renderBrandingThemeOptions();
+  setBrandingThemeStatus('Reconnect Xero to allow theme access.','#B91C1C');
 }
 }
 
@@ -1547,6 +1660,7 @@ if(data.error)throw new Error(data.error);
 if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
 alert('✅ Connected to Xero!\n\nOrganization: '+data.tenant_name);
 window.history.replaceState({},document.title,window.location.pathname);
+await loadBrandingThemes();
 await refreshXeroStatus();
 }catch(err){
 if(statusEl)statusEl.innerHTML='<span style="color:#DC2626">❌ Failed</span>';
@@ -1596,7 +1710,7 @@ const response=await authFetch('/.netlify/functions/xero-export',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({
-job:{clientName:job.clientName,email:job.email,phone:job.phone,address:job.address,date:job.date,id:job.id},
+job:{clientName:job.clientName,email:job.email,phone:job.phone,address:job.address,date:job.date,id:job.id,quoteBrandingThemeId:defaultQuoteBrandingThemeId,quoteExpiryDays:defaultQuoteExpiryDays,quoteTerms:defaultQuoteTerms},
 lineItems:lineItems
 })
 });
@@ -1626,6 +1740,8 @@ loadJobs();
 appInitialized=true;
 }
 refreshXeroStatus();
+}else{
+setBrandingThemeStatus('Connect Xero to load branding themes.','#6B7280');
 }
 });
 });

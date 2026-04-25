@@ -83,6 +83,16 @@ async function upsertContact({ accessToken, tenantId, job }) {
   return contact.ContactID;
 }
 
+function addDaysToIsoDate(isoDate, daysToAdd) {
+  const safeDays = Number.isFinite(daysToAdd) ? daysToAdd : 0;
+  const base = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(base.getTime())) {
+    return isoDate;
+  }
+  base.setDate(base.getDate() + safeDays);
+  return base.toISOString().slice(0, 10);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS_HEADERS, body: '' };
@@ -122,17 +132,28 @@ exports.handler = async (event) => {
 
     console.log('Creating quote for:', job.clientName);
 
+    const quoteExpiryDays = Math.max(parseInt(job.quoteExpiryDays || 0, 10) || 0, 0);
+    const quoteBrandingThemeId = String(job.quoteBrandingThemeId || "").trim();
+    const quoteTerms = String(job.quoteTerms || "").trim();
+    const expiryDate = addDaysToIsoDate(job.date, quoteExpiryDays);
+
     // Create Quote - Xero will auto-create contact if it doesn't exist
     const quoteData = {
       Contact: { 
         ContactID: contactId
       },
       Date: job.date,
-      ExpiryDate: job.date,
+      ExpiryDate: expiryDate,
       Reference: `QUOTE-${job.id}`,
       LineItems: lineItems,
       Status: "DRAFT"
     };
+    if (quoteBrandingThemeId) {
+      quoteData.BrandingThemeID = quoteBrandingThemeId;
+    }
+    if (quoteTerms) {
+      quoteData.Terms = quoteTerms;
+    }
 
     // Xero expects a wrapper object: { Quotes: [ ... ] }
     const payload = { Quotes: [ quoteData ] };

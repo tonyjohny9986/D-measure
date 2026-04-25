@@ -23,7 +23,8 @@ exports.handler = async (event) => {
   const scopes = [
     'offline_access',
     'accounting.transactions',
-    'accounting.contacts'
+    'accounting.contacts',
+    'accounting.settings.read'
   ].join(' ');
 
   const state = 'deco123';
