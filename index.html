@@ -377,7 +377,7 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 </tr>
 </thead>
 <tbody>
-<tr><td style="padding:6px;color:#1F2937">Shutters</td><td style="padding:6px"><input type="number" id="rate-Shutters" value="850" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Shutters" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
+<tr><td style="padding:6px;color:#1F2937">Shutters</td><td style="padding:6px"><input type="number" id="rate-Shutters" value="285" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Shutters" value="1" readonly style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px;background:#F3F4F6;color:#6B7280"></td></tr>
 <tr><td style="padding:6px;color:#1F2937">Verishade</td><td style="padding:6px"><input type="number" id="rate-Verishade" value="380" style="width:70px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td><td style="padding:6px"><input type="number" step="0.1" id="mult-Verishade" value="1.8" style="width:60px;padding:6px;border:1px solid #D1D5DB;border-radius:4px"></td></tr>
 </tbody>
 </table>
@@ -415,12 +415,16 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 <div style="font-size:18px;font-weight:700;color:#1D4ED8">📲 Import from WhatsApp</div>
 <p style="color:#475569;font-size:14px;margin-top:6px">Paste the full message and import the measurements in one go.</p>
 </div>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
 <div class="import-tags">
 <span class="import-tag">One window per line</span>
 <span class="import-tag">Use mm like 1200 x 1500</span>
 <span class="import-tag">Or metres like 1.2 x 1.5</span>
 </div>
+<button id="whatsappImportToggle" onclick="toggleWhatsAppImportPanel()" class="btn" style="background:#DBEAFE;color:#1D4ED8;padding:10px 16px;font-size:14px">Minimise</button>
 </div>
+</div>
+<div id="whatsappImportBody">
 <div class="import-grid">
 <div>
 <textarea id="whatsappImportText" class="import-text" placeholder="Living Room&#10;W1 1800 x 2100 recess&#10;W2 1200 x 1500 face&#10;&#10;Bedroom 2 roller blinds&#10;900 x 1500&#10;1200 x 1500&#10;&#10;Kitchen sheer curtains&#10;Window 1 3.2 x 2.4 ceiling"></textarea>
@@ -451,10 +455,11 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 <button onclick="applyWhatsAppImport('replace')" class="btn btn-red" style="flex:1;min-width:140px">Replace All</button>
 </div>
 <button onclick="clearWhatsAppImport()" class="btn" style="margin-top:10px;background:#DBEAFE;color:#1D4ED8;width:100%">Clear Paste</button>
-<div id="whatsappImportStatus" class="import-summary" style="margin-top:12px">Paste a message and click Preview to check what will be imported.</div>
 </div>
 </div>
 <div id="whatsappImportPreview" class="hidden" style="margin-top:16px"></div>
+</div>
+<div id="whatsappImportStatus" class="import-summary" style="margin-top:12px">Paste a message and click Preview to check what will be imported.</div>
 </div>
 <div id="emptyWindows" class="empty-state" style="padding:40px">
 <p style="color:#6B7280;margin-bottom:15px;font-size:16px">No windows added yet</p>
@@ -525,6 +530,7 @@ let freightCarrier='betta';
 let currentUser=null;
 let appInitialized=false;
 let lastWhatsAppImportPreview=null;
+let whatsAppImportCollapsed=false;
 
 function getStorageItem(key){
   try{
@@ -567,8 +573,10 @@ const LEGACY_PRICE_LISTS = {
   verishade: {'Category 1 - Wand': 350, 'Category 1 - Motorised': 510, 'Category 2 - Wand': 380, 'Category 2 - Motorised': 540, 'S Range - Wand': 420, 'S Range - Motorised': 580}
 };
 
-const defaultRates={'Blinds-Roller':35,'Blinds-Trublockout':500,'Blinds-Vertical':85,'Blinds-Zebra':110,'Blinds-Venetian':95,'Shutters':850,'Curtains-Sheer':105,'Curtains-Blockout':145,'Verishade':380};
-const defaultMultipliers={'Blinds-Roller':1.8,'Blinds-Trublockout':1.8,'Blinds-Vertical':1.8,'Blinds-Zebra':1.8,'Blinds-Venetian':1.8,'Shutters':1.8,'Curtains-Sheer':1.8,'Curtains-Blockout':1.8,'Verishade':1.8};
+const DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST=285;
+const DEFAULT_SHUTTER_SUPPLY_RATE_INC_GST=165;
+const defaultRates={'Blinds-Roller':35,'Blinds-Trublockout':500,'Blinds-Vertical':85,'Blinds-Zebra':110,'Blinds-Venetian':95,'Shutters':DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST,'Curtains-Sheer':105,'Curtains-Blockout':145,'Verishade':380};
+const defaultMultipliers={'Blinds-Roller':1.8,'Blinds-Trublockout':1.8,'Blinds-Vertical':1.8,'Blinds-Zebra':1.8,'Blinds-Venetian':1.8,'Shutters':1,'Curtains-Sheer':1.8,'Curtains-Blockout':1.8,'Verishade':1.8};
 
 const defaultInstallCharges={
   'Blinds-Roller':30,
@@ -897,7 +905,8 @@ function renderWhatsAppImportPreview(result, statusMode){
   previewEl.innerHTML='<div class="table-container" style="margin:0"><table style="width:100%;border-collapse:collapse;min-width:720px">'
     +'<thead><tr style="background:#EFF6FF"><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Room</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Window</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Product</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Size</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Fit</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Notes</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Source</th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table></div>'+ignoredHtml;
-  previewEl.classList.remove('hidden');
+  if(whatsAppImportCollapsed)previewEl.classList.add('hidden');
+  else previewEl.classList.remove('hidden');
 }
 
 function getWhatsAppImportOptions(){
@@ -911,6 +920,7 @@ function getWhatsAppImportOptions(){
 function previewWhatsAppImport(){
   if(!currentJob){alert('Start a job first');return;}
   const textEl=document.getElementById('whatsappImportText');
+  setWhatsAppImportCollapsed(false);
   const result=parseWhatsAppImportText(textEl?textEl.value:'',getWhatsAppImportOptions());
   lastWhatsAppImportPreview=result;
   renderWhatsAppImportPreview(result,result.windows.length?'ok':'error');
@@ -978,15 +988,49 @@ function applyWhatsAppImport(mode){
   const statusEl=document.getElementById('whatsappImportStatus');
   if(statusEl){
     statusEl.innerHTML='<strong style="color:#065F46">Imported '+imported.length+' window'+(imported.length===1?'':'s')+'.</strong>'
-      +'<div class="import-preview-meta">'+(mode==='replace'?'Existing windows were replaced.':'New windows were added to this job.')+'</div>';
+      +'<div class="import-preview-meta">'+(mode==='replace'?'Existing windows were replaced.':'New windows were added to this job.')+' Importer minimised to keep the page clean.</div>';
   }
+  setWhatsAppImportCollapsed(true);
 }
 
 function clearWhatsAppImport(){
   const textEl=document.getElementById('whatsappImportText');
   if(textEl)textEl.value='';
   lastWhatsAppImportPreview=null;
+  setWhatsAppImportCollapsed(false);
   renderWhatsAppImportPreview(null,'idle');
+}
+
+function setWhatsAppImportCollapsed(collapsed){
+  whatsAppImportCollapsed=!!collapsed;
+  const body=document.getElementById('whatsappImportBody');
+  const toggle=document.getElementById('whatsappImportToggle');
+  const preview=document.getElementById('whatsappImportPreview');
+  if(body)body.classList.toggle('hidden',whatsAppImportCollapsed);
+  if(toggle)toggle.textContent=whatsAppImportCollapsed?'Open Importer':'Minimise';
+  if(preview&&whatsAppImportCollapsed)preview.classList.add('hidden');
+  if(!whatsAppImportCollapsed&&lastWhatsAppImportPreview&&lastWhatsAppImportPreview.windows&&lastWhatsAppImportPreview.windows.length){
+    renderWhatsAppImportPreview(lastWhatsAppImportPreview,'ok');
+  }
+}
+
+function toggleWhatsAppImportPanel(){
+  setWhatsAppImportCollapsed(!whatsAppImportCollapsed);
+}
+
+function isShutterAllInWindow(w){
+  return !!w&&w.type==='Shutters';
+}
+
+function getShutterSupplyRateExGst(){
+  return DEFAULT_SHUTTER_SUPPLY_RATE_INC_GST/(1+GST_RATE);
+}
+
+function normalizeJobPricingState(job){
+  if(!job||typeof job!=='object')return;
+  job.rates=Object.assign({},defaultRates,job.rates||{});
+  job.multipliers=Object.assign({},defaultMultipliers,job.multipliers||{});
+  job.multipliers['Shutters']=1;
 }
 
 function getCatalogProductKey(windowOrKey){
@@ -1074,6 +1118,25 @@ function getWindowPricingDetails(w,job=currentJob){
   const key=getWindowKey(w);
   const jobRates=job&&job.rates?job.rates:null;
   const jobMultipliers=job&&job.multipliers?job.multipliers:null;
+  if(isShutterAllInWindow(w)){
+    const area=(width*drop)/1000000;
+    const customerRateIncGst=parseNumberOr(jobRates?jobRates[key]:undefined,parseNumberOr(w.rateOverride,parseNumberOr(defaultRates[key],DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST)));
+    const supplyCost=area*getShutterSupplyRateExGst();
+    const subtotal=area*(customerRateIncGst/(1+GST_RATE));
+    return {
+      key,
+      multiplier:1,
+      supplyCost,
+      supplyCostIncGst:supplyCost*(1+GST_RATE),
+      subtotal,
+      displayRate:customerRateIncGst,
+      displayUnit:'$/m² inc GST',
+      pricingMode:'shutter-all-in',
+      categoryKey:null,
+      optionTotal:0,
+      allInclusive:true
+    };
+  }
   const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(jobMultipliers?jobMultipliers[key]:undefined,1));
   const optionConfig=getWindowOptionConfig(w);
   const fixedExtraTotal=getSelectedNamedItems(w.selectedFixedExtras,optionConfig.fixed).reduce((sum,item)=>sum+parseNumberOr(item.amount,0),0);
@@ -1186,10 +1249,15 @@ el.style.color=color||'#6B7280';
 }
 
 function handleJobMultiplierBlur(idx,el){
+  const w=currentJob&&currentJob.windows?currentJob.windows[idx]:null;
+  if(isShutterAllInWindow(w)){
+    if(el)el.value='1';
+    updateJobRates(idx);
+    return;
+  }
   const normalized=normalizeDecimalInput(el&&el.value);
   const parsed=parseFloat(normalized);
   if(!normalized||Number.isNaN(parsed)){
-    const w=currentJob&&currentJob.windows?currentJob.windows[idx]:null;
     const key=w?getWindowKey(w):null;
     const jobMultipliers=currentJob&&currentJob.multipliers?currentJob.multipliers:null;
     const fallback=parseNumberOr(w&&w.multiplierOverride,parseNumberOr(jobMultipliers&&key?jobMultipliers[key]:undefined,parseNumberOr(defaultMultipliers[key],1.8)));
@@ -1408,13 +1476,17 @@ const cfg=defaultFreightConfig[carrier];
 if(!cfg)return 0;
 let totalMeters=0;
 let hasOverLength=false;
+let eligibleCount=0;
 jobObj.windows.forEach(w=>{
+if(isShutterAllInWindow(w))return;
 const width=parseFloat(w.width)||0;
 if(width<=0)return;
+eligibleCount+=1;
 const widthM=width/1000;
 totalMeters+=widthM;
 if(widthM>=cfg.thresholdM)hasOverLength=true;
 });
+if(eligibleCount===0)return 0;
 let freight=(cfg.base||0)+(totalMeters*(cfg.perMeter||0));
 if(hasOverLength)freight+=(cfg.overLength||0);
 return Math.round(freight*100)/100;
@@ -1554,6 +1626,12 @@ if(el){
   el.value=parseNumberOr(defaultMultipliers[key],1.8);
 }
 });
+defaultMultipliers['Shutters']=1;
+const shutterMultEl=document.getElementById('mult-Shutters');
+if(shutterMultEl){
+  shutterMultEl.value='1';
+  shutterMultEl.setAttribute('readonly','readonly');
+}
 const savedFreight=getStorageItem('freightCarrier')||'betta';
 freightCarrier=savedFreight;
 const freightEl=document.getElementById('freight-carrier');
@@ -1655,6 +1733,12 @@ setStorageItem('rate-'+key,val);
 Object.keys(defaultMultipliers).forEach(key=>{
 const el=document.getElementById('mult-'+key);
 if(el){
+if(key==='Shutters'){
+  defaultMultipliers[key]=1;
+  el.value='1';
+  setStorageItem('mult-'+key,1);
+  return;
+}
 const normalized=normalizeDecimalInput(el.value);
 if(normalized===''){
   el.value=String(defaultMultipliers[key]);
@@ -1752,6 +1836,7 @@ if(tab==='saved')renderSavedJobs();
 
 function startNewJob(){
 currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],windows:[],rates:Object.assign({},defaultRates),multipliers:Object.assign({},defaultMultipliers),freightCost:0,freightCarrier:freightCarrier};
+normalizeJobPricingState(currentJob);
 showingFinalDetails=false;
 document.getElementById('emptyState').classList.add('hidden');
 document.getElementById('jobForm').classList.remove('hidden');
@@ -1879,6 +1964,7 @@ updateWindowsDisplay();
 
 
 function getInstallChargeForWindow(w){
+  if(isShutterAllInWindow(w))return 0;
   const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
   // Allow per-window override (EX GST)
   const override=parseFloat(w.installOverride);
@@ -1887,6 +1973,7 @@ function getInstallChargeForWindow(w){
 }
 
 function getLogisticsChargeForWindow(w){
+  if(isShutterAllInWindow(w))return 0;
   // Allow per-window override (EX GST)
   const override=parseFloat(w.logisticsOverride);
   if(!isNaN(override)) return override;
@@ -1899,6 +1986,7 @@ function getLogisticsChargeForWindow(w){
 
 
 function calculateTotals(job){
+normalizeJobPricingState(job);
 let totals={};
 job.windows.forEach(w=>{
 const width=parseFloat(w.width)||0;
@@ -1924,6 +2012,7 @@ function allocateFreightByMerit(windows,totalFreight){
   const validIdx=[];
   let totalWeight=0;
   windows.forEach((w,i)=>{
+    if(isShutterAllInWindow(w)) return;
     const width=parseFloat(w.width)||0;
     const drop=parseFloat(w.drop)||0;
     if(width<=0||drop<=0) return;
@@ -1956,6 +2045,11 @@ function allocateFreightByMerit(windows,totalFreight){
 }
 
 const freightShares=allocateFreightByMerit(job.windows, freight);
+const freightEligibleCount=job.windows.filter(w=>{
+  const width=parseFloat(w.width)||0;
+  const drop=parseFloat(w.drop)||0;
+  return width>0&&drop>0&&!isShutterAllInWindow(w);
+}).length;
 
 // Install & logistics (EX GST)
 let installTotal=0;
@@ -1982,7 +2076,7 @@ const total=subtotalWithFreight+gst;
 // Customer price "no markup" but including install/logistics/freight
 const customerPrice=(totalSupplyCost+installTotal+logisticsTotal+freight) * (1+GST_RATE);
 
-const freightPerProduct=job.windows.length>0?(freight/job.windows.length):0;
+const freightPerProduct=freightEligibleCount>0?(freight/freightEligibleCount):0;
 
 return{totals,totalSupplyCost,totalSupplyCostIncGst,totalMarkup,installTotal,logisticsTotal,subtotalBeforeExtras,subtotalWithExtras,freight,freightPerProduct,freightShares,subtotalWithFreight,gst,total,customerPrice};
 }
@@ -2087,6 +2181,7 @@ normalizeWindowOptionState(w);
 const pricing=getWindowPricingDetails(w,currentJob);
 const currentRate=pricing.displayRate;
 const currentMult=pricing.multiplier;
+const isShutterAllIn=isShutterAllInWindow(w);
 const fabricOptions=getFabricOptions(w.type,w.subType);
 const fabricSelect=fabricOptions.length>0?`<select id="jobfabric-${idx}" onchange="updateJobFabric(${idx})" style="width:160px;padding:10px;border:2px solid #D1D5DB;border-radius:6px">${fabricOptions.map(f=>`<option value="${f}" ${w.fabricType===f?'selected':''}>${f}</option>`).join('')}</select>`:`<span style="color:#999">-</span>`;
 const optionConfig=getWindowOptionConfig(w);
@@ -2097,9 +2192,19 @@ const percentHtml=optionConfig.percent.length?`<div><div class="option-note" sty
 const manualNotes=optionConfig.manual.length?`<div class="option-note">${optionConfig.manual.map(item=>`${item.name}: ${item.pricingText}`).join(' • ')}</div>`:'';
 const manualExtraHtml=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><input type="number" value="${w.manualProductExtra!==''?w.manualProductExtra:''}" oninput="updateManualProductExtra(${idx},this.value)" placeholder="manual extra" style="width:110px;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><span class="option-note">Added before markup</span></div>`;
 const optionSummary=pricing.optionTotal?`<div class="option-summary">Options total: $${pricing.optionTotal.toFixed(2)}</div>`:'';
-const optionSections=[motorHtml,fixedHtml,percentHtml,manualNotes,manualExtraHtml,optionSummary].filter(Boolean);
+const shutterNote=isShutterAllIn?`<div class="option-note" style="color:#1D4ED8">Customer shutter rate is all-inclusive. No extra install, logistics, freight, or multiplier is added.</div>`:'';
+const optionSections=isShutterAllIn?[shutterNote]:[motorHtml,fixedHtml,percentHtml,manualNotes,manualExtraHtml,optionSummary].filter(Boolean);
 const optionsHtml=optionSections.length?`<div class="option-stack">${optionSections.join('')}</div>`:`<span style="color:#999;font-size:12px">No extra options</span>`;
-html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:180px">${fabricSelect}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:150px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:150px"><div style="font-weight:700;color:#1D4ED8">$${pricing.supplyCostIncGst.toFixed(2)}</div><div class="option-note">per product inc GST</div></td><td style="padding:12px;min-width:120px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px;min-width:110px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px;min-width:110px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
+const multiplierCell=isShutterAllIn
+  ? `<div style="font-weight:700;color:#6B7280">1.00</div><div class="option-note">fixed for shutters</div>`
+  : `<input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span>`;
+const installCell=isShutterAllIn
+  ? `<div style="font-weight:700;color:#6B7280">Included</div><div class="option-note">inside shutter rate</div>`
+  : `<input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px">`;
+const logisticsCell=isShutterAllIn
+  ? `<div style="font-weight:700;color:#6B7280">Included</div><div class="option-note">inside shutter rate</div>`
+  : `<input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px">`;
+html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:180px">${fabricSelect}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:150px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:150px"><div style="font-weight:700;color:#1D4ED8">$${pricing.supplyCostIncGst.toFixed(2)}</div><div class="option-note">per product inc GST</div></td><td style="padding:12px;min-width:120px">${multiplierCell}</td><td style="padding:12px;min-width:110px">${installCell}</td><td style="padding:12px;min-width:110px">${logisticsCell}</td></tr>`;
 });
 html+='</tbody></table></div>';
 html+=`<div class="freight-note" style="margin-top:15px">🔧 <strong>Install:</strong> $${calc.installTotal.toFixed(2)} • 🚚 <strong>Logistics:</strong> $${calc.logisticsTotal.toFixed(2)} (auto per item, editable above) • <strong>Freight carrier:</strong> $${calc.freight.toFixed(2)} total (distributed $${calc.freightPerProduct.toFixed(2)}/product)</div>`;
@@ -2178,11 +2283,21 @@ function updateJobRates(changedIdx=null){
 if(changedIdx!==null&&changedIdx!==undefined){
   const w=currentJob.windows[changedIdx];
   if(w){
+    const key=getWindowKey(w);
     const rateEl=document.getElementById('jobrate-'+changedIdx);
     const multEl=document.getElementById('jobmult-'+changedIdx);
     if(rateEl){
       const normalized=normalizeDecimalInput(rateEl.value);
-      if(getCatalogProduct(w)){
+      if(isShutterAllInWindow(w)){
+        const fallback=parseNumberOr(currentJob.rates&&currentJob.rates[key],parseNumberOr(defaultRates[key],DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST));
+        const parsed=normalized===''?fallback:parseNumberOr(normalized,fallback);
+        currentJob.rates[key]=parsed;
+        currentJob.windows.forEach(other=>{
+          if(getWindowKey(other)!==key)return;
+          other.rateOverride='';
+          other.pricingModeOverride='';
+        });
+      }else if(getCatalogProduct(w)){
         if(normalized===''){
           w.rateOverride='';
           w.pricingModeOverride='';
@@ -2194,16 +2309,23 @@ if(changedIdx!==null&&changedIdx!==undefined){
         w.rateOverride=parseNumberOr(normalized,0);
       }
     }
-    if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
+    if(isShutterAllInWindow(w)){
+      currentJob.multipliers[key]=1;
+      currentJob.windows.forEach(other=>{
+        if(getWindowKey(other)===key)other.multiplierOverride='';
+      });
+    }else if(multEl){
+      const normalizedMult=normalizeDecimalInput(multEl.value);
+      const parsedMult=parseFloat(normalizedMult);
+      const fallbackMult=parseNumberOr(currentJob.multipliers&&currentJob.multipliers[key],parseNumberOr(defaultMultipliers[key],1.8));
+      const nextMult=(!normalizedMult||Number.isNaN(parsedMult))?fallbackMult:parsedMult;
+      currentJob.multipliers[key]=nextMult;
+      currentJob.windows.forEach(other=>{
+        if(getWindowKey(other)===key)other.multiplierOverride='';
+      });
+    }
   }
 }
-
-currentJob.windows.forEach((w,idx)=>{
-const rateEl=document.getElementById('jobrate-'+idx);
-const multEl=document.getElementById('jobmult-'+idx);
-if(rateEl&&!getCatalogProduct(w))w.rateOverride=parseNumberOr(rateEl.value,0);
-if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
-});
 updateLiveSummary();
 renderPricingAdjustments();
 }
@@ -2273,6 +2395,7 @@ container.appendChild(card);
 function editJob(index){
 const job=jobs[index];
 currentJob=JSON.parse(JSON.stringify(job));
+normalizeJobPricingState(currentJob);
 currentEditingIndex=index;
 showingFinalDetails=false;
 showTab('measure');
