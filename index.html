@@ -73,6 +73,18 @@ tr:hover{background:#F9FAFB}
 .modal-content{background:white;padding:30px;border-radius:12px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.3)}
 .modal-title{color:#DC2626;font-size:24px;margin-bottom:15px;font-weight:700}
 .freight-note{background:#E0F2FE;border-left:4px solid#0284C7;padding:12px;margin:10px 0;font-size:13px;color:#075985}
+.import-panel{background:linear-gradient(135deg,#F8FBFF 0%,#EEF6FF 100%);border:2px solid #BFDBFE;border-radius:12px;padding:20px;margin-bottom:18px}
+.import-grid{display:grid;grid-template-columns:minmax(280px,1.7fr) minmax(260px,1fr);gap:18px;align-items:start}
+.import-text{width:100%;min-height:180px;padding:12px;font-size:14px;border:2px solid #BFDBFE;border-radius:10px;font-family:inherit;resize:vertical}
+.import-text:focus{outline:none;border-color:#60A5FA}
+.import-help{font-size:12px;color:#475569;line-height:1.5}
+.import-summary{background:white;border:1px solid #DBEAFE;border-radius:10px;padding:12px 14px;font-size:13px;color:#1E3A8A}
+.import-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.import-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#E0F2FE;color:#075985;font-size:11px;font-weight:700}
+.import-preview-meta{font-size:12px;color:#64748B;margin-top:8px}
+@media (max-width:900px){
+  .import-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -126,7 +138,7 @@ tr:hover{background:#F9FAFB}
 </div>
 </div>
 <div id="settingsPanel" class="settings-panel hidden">
-<h3 style="color:#7BCCC4;margin-bottom:20px;font-size:24px">⚙️ Settings <span style="font-size:12px;color:#6B7280;font-weight:600">build 2026-02-11.5</span></h3>
+<h3 style="color:#7BCCC4;margin-bottom:20px;font-size:24px">⚙️ Settings <span style="font-size:12px;color:#6B7280;font-weight:600">build 2026-06-09.1</span></h3>
 
 <!-- Xero Integration -->
 <div style="background:linear-gradient(135deg,#E0F2FE 0%,#BAE6FD 100%);border:3px solid #0284C7;padding:25px;border-radius:12px;margin-bottom:30px">
@@ -397,6 +409,53 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 
 <div class="card hidden" id="windowsCard">
 <h3 class="card-title">📏 Window Measurements</h3>
+<div class="import-panel">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+<div>
+<div style="font-size:18px;font-weight:700;color:#1D4ED8">📲 Import from WhatsApp</div>
+<p style="color:#475569;font-size:14px;margin-top:6px">Paste the full message and import the measurements in one go.</p>
+</div>
+<div class="import-tags">
+<span class="import-tag">One window per line</span>
+<span class="import-tag">Use mm like 1200 x 1500</span>
+<span class="import-tag">Or metres like 1.2 x 1.5</span>
+</div>
+</div>
+<div class="import-grid">
+<div>
+<textarea id="whatsappImportText" class="import-text" placeholder="Living Room&#10;W1 1800 x 2100 recess&#10;W2 1200 x 1500 face&#10;&#10;Bedroom 2 roller blinds&#10;900 x 1500&#10;1200 x 1500&#10;&#10;Kitchen sheer curtains&#10;Window 1 3.2 x 2.4 ceiling"></textarea>
+<div class="import-help" style="margin-top:10px">You can include room headings, window numbers, notes, and words like roller, vertical, sheer, blockout, verishade, shutter, recess, face, or ceiling.</div>
+</div>
+<div>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:6px">Default product for lines without product words</label>
+<select id="importDefaultProduct" style="margin-bottom:14px">
+<option value="Blinds|Roller">Blinds - Roller</option>
+<option value="Blinds|Vertical">Blinds - Vertical</option>
+<option value="Blinds|Zebra">Blinds - Zebra</option>
+<option value="Blinds|Venetian">Blinds - Venetian</option>
+<option value="Curtains|Sheer">Curtains - Sheer</option>
+<option value="Curtains|Blockout">Curtains - Blockout</option>
+<option value="Verishade|-">Verishade</option>
+<option value="Shutters|-">Shutters</option>
+</select>
+<label style="display:block;color:#0F172A;font-weight:600;margin-bottom:6px">Default fit if the message does not mention one</label>
+<select id="importDefaultFit" style="margin-bottom:14px">
+<option value="">Leave fit blank</option>
+<option value="recess">Recess</option>
+<option value="face">Face</option>
+<option value="ceiling">Ceiling</option>
+</select>
+<div class="btn-row" style="margin-top:0;flex-wrap:wrap">
+<button onclick="previewWhatsAppImport()" class="btn btn-gray" style="flex:1;min-width:140px">Preview</button>
+<button onclick="applyWhatsAppImport('append')" class="btn btn-teal" style="flex:1;min-width:140px">Add Windows</button>
+<button onclick="applyWhatsAppImport('replace')" class="btn btn-red" style="flex:1;min-width:140px">Replace All</button>
+</div>
+<button onclick="clearWhatsAppImport()" class="btn" style="margin-top:10px;background:#DBEAFE;color:#1D4ED8;width:100%">Clear Paste</button>
+<div id="whatsappImportStatus" class="import-summary" style="margin-top:12px">Paste a message and click Preview to check what will be imported.</div>
+</div>
+</div>
+<div id="whatsappImportPreview" class="hidden" style="margin-top:16px"></div>
+</div>
 <div id="emptyWindows" class="empty-state" style="padding:40px">
 <p style="color:#6B7280;margin-bottom:15px;font-size:16px">No windows added yet</p>
 <button onclick="addWindow()" class="btn btn-teal">+ Add Window</button>
@@ -465,6 +524,7 @@ let currentMidRailWindowIndex=null;
 let freightCarrier='betta';
 let currentUser=null;
 let appInitialized=false;
+let lastWhatsAppImportPreview=null;
 
 function getStorageItem(key){
   try{
@@ -551,6 +611,382 @@ function parseNumberOr(value,fallback){
 
 function normalizeDecimalInput(value){
   return String(value==null?'':value).replace(',', '.').trim();
+}
+
+function escapeHtml(value){
+  return String(value==null?'':value)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function cleanImportLine(line){
+  return String(line==null?'':line)
+    .replace(/[\u2022\u25CF\u25E6]/g,' ')
+    .replace(/^\s*(?:[-*]+|\(?\d+\)?[.)-])\s*/,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function decodeImportProductValue(value){
+  const parts=String(value||'Blinds|Roller').split('|');
+  const type=parts[0]||'Blinds';
+  let subType=parts[1]||'';
+  if(type==='Blinds'&&!subType)subType='Roller';
+  if(type==='Curtains'&&!subType)subType='Sheer';
+  if(type==='Verishade'||type==='Shutters')subType='-';
+  return {type,subType};
+}
+
+function getSelectedImportFit(){
+  const el=document.getElementById('importDefaultFit');
+  return el?String(el.value||''):'';
+}
+
+function detectImportProduct(text, fallback){
+  const normalized=' '+String(text||'').toLowerCase()+' ';
+  const fallbackProduct=fallback||{type:'Blinds',subType:'Roller'};
+  if(/\bveri\s*shade\b|\bverishade\b/.test(normalized))return {type:'Verishade',subType:'-'};
+  if(/\bshutters?\b/.test(normalized))return {type:'Shutters',subType:'-'};
+  if(/\bvertical\b/.test(normalized))return {type:'Blinds',subType:'Vertical'};
+  if(/\bzebra\b/.test(normalized))return {type:'Blinds',subType:'Zebra'};
+  if(/\bvenetian\b/.test(normalized))return {type:'Blinds',subType:'Venetian'};
+  if(/\btrublockout\b/.test(normalized))return {type:'Blinds',subType:'Trublockout'};
+  if(/\brollers?\b/.test(normalized))return {type:'Blinds',subType:'Roller'};
+  if(/\bsheers?\b/.test(normalized))return {type:'Curtains',subType:'Sheer'};
+  if(/\bblock\s*out\b|\bblockout\b/.test(normalized)&&(/\bcurtain\b|\bcurtains\b/.test(normalized)||fallbackProduct.type==='Curtains'))return {type:'Curtains',subType:'Blockout'};
+  if(/\bcurtain\b|\bcurtains\b/.test(normalized))return fallbackProduct.type==='Curtains'?fallbackProduct:{type:'Curtains',subType:'Sheer'};
+  if(/\bblind\b|\bblinds\b/.test(normalized))return fallbackProduct.type==='Blinds'?fallbackProduct:{type:'Blinds',subType:'Roller'};
+  return null;
+}
+
+function parseImportDimensionPair(firstValue, secondValue, matchText){
+  const first=parseFloat(normalizeDecimalInput(firstValue));
+  const second=parseFloat(normalizeDecimalInput(secondValue));
+  if(Number.isNaN(first)||Number.isNaN(second))return null;
+  const lowerText=String(matchText||'').toLowerCase();
+  let multiplier=1;
+  if(/\bcm\b/.test(lowerText))multiplier=10;
+  else if(/\bm\b/.test(lowerText)&&!/\bmm\b/.test(lowerText))multiplier=1000;
+  else if(first<=20&&second<=20)multiplier=1000;
+  const widthMm=Math.round(first*multiplier);
+  const dropMm=Math.round(second*multiplier);
+  if(widthMm<=0||dropMm<=0)return null;
+  return {widthMm,dropMm};
+}
+
+function parseImportDimensions(text){
+  const content=String(text||'');
+  const patterns=[
+    /(?:^|[^\d])(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m)?\s*[x×*/-]\s*(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m)?/i,
+    /\bw(?:idth)?\s*[:=-]?\s*(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m)?[\s,;/]+(?:d(?:rop)?|h(?:eight)?)\s*[:=-]?\s*(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m)?/i,
+    /\b(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)(?:\s*(?:mm|cm|m))?/i
+  ];
+  for(let i=0;i<patterns.length;i++){
+    const match=content.match(patterns[i]);
+    if(!match)continue;
+    const values=parseImportDimensionPair(match[1],match[2],match[0]);
+    if(values)return Object.assign({matchText:match[0],matchIndex:match.index||0},values);
+  }
+  return null;
+}
+
+function extractImportWindowNumber(text){
+  const longMatch=String(text||'').match(/\b(?:window|win)\s*#?\s*([A-Za-z0-9-]+)\b/i);
+  if(longMatch){
+    const value=String(longMatch[1]).toUpperCase();
+    if(!/^\d{4,}$/.test(value))return 'W'+value;
+  }
+  const shortMatch=String(text||'').match(/\bW(?!INDOW\b)\s*#?\s*([A-Za-z0-9-]+)\b/i);
+  if(shortMatch){
+    const value=String(shortMatch[1]).toUpperCase();
+    if(!/^\d{4,}$/.test(value))return 'W'+value;
+  }
+  return '';
+}
+
+function stripImportProductWords(text){
+  return String(text||'')
+    .replace(/\bveri\s*shade\b/gi,' ')
+    .replace(/\b(?:roller|vertical|zebra|venetian|trublockout|sheer|sheers|blockout|block out|curtain|curtains|blind|blinds|shutter|shutters)\b/gi,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function getImportHeadingCandidate(text){
+  const original=String(text||'').trim();
+  if(!original)return null;
+  let candidate=stripImportProductWords(original)
+    .replace(/\b(?:recess|face|ceiling|inside(?:\s*mount)?|outside(?:\s*mount)?)\b/gi,' ')
+    .replace(/[:\-]+$/,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+  if(!candidate||/\d{3,}/.test(candidate))return null;
+  const words=candidate.split(/\s+/).filter(Boolean);
+  if(words.length>6)return null;
+  const roomKeyword=/\b(living|lounge|bed|bedroom|master|kitchen|bath|bathroom|ensuite|laundry|study|office|hall|hallway|entry|entrance|dining|media|theatre|garage|toilet|wc|stairs|landing|alfresco|patio|balcony|sunroom|family|guest|nursery|kids?|sliding|door|front|back)\b/i;
+  const isHighConfidence=/[:\-]\s*$/.test(original)||roomKeyword.test(candidate);
+  if(isHighConfidence)return {room:candidate,confidence:'high'};
+  if(words.length<=2)return {room:candidate,confidence:'low'};
+  return null;
+}
+
+function extractInlineImportRoom(text, dimensionInfo){
+  if(!dimensionInfo)return '';
+  const before=String(text||'').slice(0,dimensionInfo.matchIndex);
+  const after=String(text||'').slice(dimensionInfo.matchIndex+String(dimensionInfo.matchText||'').length);
+  let candidate=(before+' '+after)
+    .replace(/\b(?:window|win|w)\s*#?\s*[A-Za-z0-9-]+\b/gi,' ')
+    .replace(/\b(?:recess|face|ceiling|inside(?:\s*mount)?|outside(?:\s*mount)?)\b/gi,' ')
+    .replace(/\b(?:chain|motor|motorised|motorized|wand)\b/gi,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+  candidate=stripImportProductWords(candidate);
+  if(!candidate)return '';
+  const headingCandidate=getImportHeadingCandidate(candidate);
+  return headingCandidate?headingCandidate.room:'';
+}
+
+function detectImportFit(text){
+  const normalized=' '+String(text||'').toLowerCase()+' ';
+  if(/\brecess\b|\binside(?:\s*mount)?\b/.test(normalized))return 'recess';
+  if(/\bceiling\b/.test(normalized))return 'ceiling';
+  if(/\bface\b|\boutside(?:\s*mount)?\b/.test(normalized))return 'face';
+  return '';
+}
+
+function appendImportNote(target, note){
+  if(!target)return;
+  const cleaned=String(note||'').trim();
+  if(!cleaned)return;
+  target.notes=target.notes?[target.notes,cleaned].join(' | '):cleaned;
+}
+
+function extractImportNotes(text, dimensionInfo, room, windowNumber){
+  if(!dimensionInfo)return '';
+  let note=String(text||'');
+  note=note.replace(String(dimensionInfo.matchText||''),' ');
+  note=note.replace(/\b(?:window|win|w)\s*#?\s*[A-Za-z0-9-]+\b/gi,' ');
+  if(room){
+    const safeRoom=room.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    note=note.replace(new RegExp('\\b'+safeRoom+'\\b','i'),' ');
+  }
+  if(windowNumber){
+    const safeWindow=windowNumber.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    note=note.replace(new RegExp('\\b'+safeWindow+'\\b','i'),' ');
+  }
+  note=stripImportProductWords(note);
+  note=note
+    .replace(/\b(?:recess|face|ceiling|inside(?:\s*mount)?|outside(?:\s*mount)?)\b/gi,' ')
+    .replace(/\s+/g,' ')
+    .replace(/^[,;:\-]+|[,;:\-]+$/g,' ')
+    .trim();
+  return note;
+}
+
+function applyFitModeToWindow(windowData, fitMode){
+  if(!windowData)return;
+  windowData.recessFit=false;
+  windowData.faceFit=false;
+  windowData.ceilingFit=false;
+  if(fitMode==='recess'&&windowData.type==='Blinds')windowData.recessFit=true;
+  if(fitMode==='face'&&(windowData.type==='Blinds'||windowData.type==='Curtains'||windowData.type==='Verishade'))windowData.faceFit=true;
+  if(fitMode==='ceiling'&&(windowData.type==='Curtains'||windowData.type==='Verishade'))windowData.ceilingFit=true;
+}
+
+function parseWhatsAppImportText(rawText, options){
+  const defaultProduct=decodeImportProductValue(options&&options.defaultProduct?options.defaultProduct:'Blinds|Roller');
+  const defaultFit=options&&options.defaultFit?String(options.defaultFit):'';
+  const lines=String(rawText||'').split(/\r?\n/);
+  const windows=[];
+  const ignored=[];
+  const headings=[];
+  let currentRoom='';
+  let currentProduct={type:defaultProduct.type,subType:defaultProduct.subType};
+
+  lines.forEach((line,index)=>{
+    const cleaned=cleanImportLine(line);
+    if(!cleaned)return;
+    const productHint=detectImportProduct(cleaned,currentProduct)||detectImportProduct(cleaned,defaultProduct);
+    const dimensions=parseImportDimensions(cleaned);
+    if(!dimensions){
+      const headingCandidate=getImportHeadingCandidate(cleaned);
+      if(productHint||(headingCandidate&&headingCandidate.confidence==='high')){
+        if(productHint)currentProduct=productHint;
+        if(headingCandidate&&headingCandidate.room)currentRoom=headingCandidate.room;
+        headings.push({lineNumber:index+1,text:cleaned});
+        return;
+      }
+      if(windows.length){
+        appendImportNote(windows[windows.length-1],cleaned);
+        return;
+      }
+      if(headingCandidate){
+        currentRoom=headingCandidate.room;
+        headings.push({lineNumber:index+1,text:cleaned});
+        return;
+      }
+      ignored.push({lineNumber:index+1,text:cleaned,reason:'No dimensions found'});
+      return;
+    }
+
+    const resolvedProduct=productHint||currentProduct||defaultProduct;
+    const room=extractInlineImportRoom(cleaned,dimensions)||currentRoom;
+    const windowNumber=extractImportWindowNumber(cleaned);
+    const fitMode=detectImportFit(cleaned)||defaultFit;
+    const notes=extractImportNotes(cleaned,dimensions,room,windowNumber);
+    windows.push({
+      room,
+      windowNumber,
+      type:resolvedProduct.type,
+      subType:resolvedProduct.subType,
+      width:dimensions.widthMm,
+      drop:dimensions.dropMm,
+      fitMode,
+      notes,
+      sourceLine:index+1
+    });
+    if(room)currentRoom=room;
+    currentProduct=resolvedProduct;
+  });
+
+  windows.forEach((windowData,index)=>{
+    if(!windowData.windowNumber)windowData.windowNumber='W'+(index+1);
+  });
+
+  return {windows,ignored,headings};
+}
+
+function renderWhatsAppImportPreview(result, statusMode){
+  const statusEl=document.getElementById('whatsappImportStatus');
+  const previewEl=document.getElementById('whatsappImportPreview');
+  if(!statusEl||!previewEl)return;
+  const data=result||{windows:[],ignored:[],headings:[]};
+  if(!data.windows.length){
+    statusEl.innerHTML=statusMode==='error'
+      ? '<strong style="color:#B91C1C">No window measurements found yet.</strong><div class="import-preview-meta">Try one measurement per line, like <strong>W1 1200 x 1500 recess</strong>.</div>'
+      : 'Paste a message and click Preview to check what will be imported.';
+    previewEl.innerHTML='';
+    previewEl.classList.add('hidden');
+    return;
+  }
+  statusEl.innerHTML='<strong style="color:#1D4ED8">'+data.windows.length+' window'+(data.windows.length===1?'':'s')+' ready to import.</strong>'
+    +'<div class="import-preview-meta">'+data.headings.length+' room/product heading'+(data.headings.length===1?'':'s')+' used'
+    +(data.ignored.length?' • '+data.ignored.length+' line'+(data.ignored.length===1?'':'s')+' ignored':'')
+    +'</div>';
+  const rows=data.windows.map(windowData=>{
+    const fitLabel=windowData.fitMode?windowData.fitMode.charAt(0).toUpperCase()+windowData.fitMode.slice(1):'-';
+    return '<tr>'
+      +'<td style="padding:10px 12px">'+escapeHtml(windowData.room||'-')+'</td>'
+      +'<td style="padding:10px 12px">'+escapeHtml(windowData.windowNumber||'-')+'</td>'
+      +'<td style="padding:10px 12px">'+escapeHtml(formatProductKeyLabel(getWindowKey(windowData)))+'</td>'
+      +'<td style="padding:10px 12px">'+escapeHtml(String(windowData.width))+' x '+escapeHtml(String(windowData.drop))+' mm</td>'
+      +'<td style="padding:10px 12px">'+escapeHtml(fitLabel)+'</td>'
+      +'<td style="padding:10px 12px">'+escapeHtml(windowData.notes||'-')+'</td>'
+      +'<td style="padding:10px 12px;color:#64748B">Line '+escapeHtml(String(windowData.sourceLine||''))+'</td>'
+      +'</tr>';
+  }).join('');
+  const ignoredHtml=data.ignored.length
+    ? '<div style="margin-top:12px;padding:12px;border-radius:10px;background:#FFF7ED;color:#9A3412;font-size:12px"><strong>Ignored lines:</strong> '
+      +data.ignored.slice(0,6).map(item=>'Line '+escapeHtml(String(item.lineNumber))+': '+escapeHtml(item.text)).join(' • ')
+      +(data.ignored.length>6?' • ...':'')
+      +'</div>'
+    : '';
+  previewEl.innerHTML='<div class="table-container" style="margin:0"><table style="width:100%;border-collapse:collapse;min-width:720px">'
+    +'<thead><tr style="background:#EFF6FF"><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Room</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Window</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Product</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Size</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Fit</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Notes</th><th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Source</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>'+ignoredHtml;
+  previewEl.classList.remove('hidden');
+}
+
+function getWhatsAppImportOptions(){
+  const productEl=document.getElementById('importDefaultProduct');
+  return {
+    defaultProduct:productEl?productEl.value:'Blinds|Roller',
+    defaultFit:getSelectedImportFit()
+  };
+}
+
+function previewWhatsAppImport(){
+  if(!currentJob){alert('Start a job first');return;}
+  const textEl=document.getElementById('whatsappImportText');
+  const result=parseWhatsAppImportText(textEl?textEl.value:'',getWhatsAppImportOptions());
+  lastWhatsAppImportPreview=result;
+  renderWhatsAppImportPreview(result,result.windows.length?'ok':'error');
+}
+
+function createWindowRecord(type='Blinds',subType='Roller'){
+  return {
+    id:windowIdCounter++,
+    room:'',
+    windowNumber:'',
+    type,
+    subType,
+    fabricType:getFabricTypeDefault(type,subType),
+    width:'',
+    drop:'',
+    recessFit:false,
+    faceFit:false,
+    ceilingFit:false,
+    notes:'',
+    color:'',
+    midRailPosition:null,
+    installOverride:'',
+    logisticsOverride:'',
+    pricingModeOverride:'',
+    selectedFixedExtras:[],
+    selectedPercentExtras:[],
+    manualProductExtra:'',
+    motorisationChoice:'',
+    motorisationCost:''
+  };
+}
+
+function materializeImportedWindow(draft, fallbackWindowNumber){
+  const windowData=createWindowRecord(draft.type,draft.subType);
+  windowData.room=draft.room||'';
+  windowData.windowNumber=draft.windowNumber||fallbackWindowNumber||'';
+  windowData.fabricType=getFabricTypeDefault(windowData.type,windowData.subType);
+  windowData.width=draft.width!=null?String(draft.width):'';
+  windowData.drop=draft.drop!=null?String(draft.drop):'';
+  windowData.notes=draft.notes||'';
+  windowData.color=draft.color||'';
+  applyFitModeToWindow(windowData,draft.fitMode||'');
+  return windowData;
+}
+
+function applyWhatsAppImport(mode){
+  if(!currentJob){alert('Start a job first');return;}
+  const textEl=document.getElementById('whatsappImportText');
+  const result=parseWhatsAppImportText(textEl?textEl.value:'',getWhatsAppImportOptions());
+  lastWhatsAppImportPreview=result;
+  renderWhatsAppImportPreview(result,result.windows.length?'ok':'error');
+  if(!result.windows.length){
+    alert('No window measurements found to import.');
+    return;
+  }
+  if(mode==='replace'&&currentJob.windows.length>0&&!confirm('Replace all existing windows with this import?')){
+    return;
+  }
+  const startingCount=mode==='replace'?0:currentJob.windows.length;
+  const imported=result.windows.map((draft,index)=>materializeImportedWindow(draft,'W'+(startingCount+index+1)));
+  if(mode==='replace')currentJob.windows=imported;
+  else currentJob.windows=currentJob.windows.concat(imported);
+  updateWindowsDisplay();
+  if(showingFinalDetails)renderPricingAdjustments();
+  const statusEl=document.getElementById('whatsappImportStatus');
+  if(statusEl){
+    statusEl.innerHTML='<strong style="color:#065F46">Imported '+imported.length+' window'+(imported.length===1?'':'s')+'.</strong>'
+      +'<div class="import-preview-meta">'+(mode==='replace'?'Existing windows were replaced.':'New windows were added to this job.')+'</div>';
+  }
+}
+
+function clearWhatsAppImport(){
+  const textEl=document.getElementById('whatsappImportText');
+  if(textEl)textEl.value='';
+  lastWhatsAppImportPreview=null;
+  renderWhatsAppImportPreview(null,'idle');
 }
 
 function getCatalogProductKey(windowOrKey){
@@ -1325,11 +1761,12 @@ document.getElementById('clientName').value='';
 document.getElementById('address').value='';
 document.getElementById('phone').value='';
 document.getElementById('email').value='';
+clearWhatsAppImport();
 updateWindowsDisplay();
 }
 
 function addWindow(){
-currentJob.windows.push({id:windowIdCounter++,room:'',windowNumber:'',type:'Blinds',subType:'Roller',fabricType:getFabricTypeDefault('Blinds','Roller'),width:'',drop:'',recessFit:false,faceFit:false,ceilingFit:false,notes:'',midRailPosition:null,installOverride:'',logisticsOverride:'',pricingModeOverride:'',selectedFixedExtras:[],selectedPercentExtras:[],manualProductExtra:'',motorisationChoice:'',motorisationCost:''});
+currentJob.windows.push(createWindowRecord('Blinds','Roller'));
 updateWindowsDisplay();
 }
 
@@ -1786,6 +2223,7 @@ await upsertJobCloud(jobToPersist);
 alert('✓ Job saved to cloud successfully!');
 currentJob=null;
 showingFinalDetails=false;
+clearWhatsAppImport();
 document.getElementById('emptyState').classList.remove('hidden');
 document.getElementById('jobForm').classList.add('hidden');
 document.getElementById('windowsCard').classList.add('hidden');
@@ -1801,6 +2239,7 @@ if(confirm('Cancel this job? All data will be lost.')){
 currentJob=null;
 currentEditingIndex=null;
 showingFinalDetails=false;
+clearWhatsAppImport();
 document.getElementById('emptyState').classList.remove('hidden');
 document.getElementById('jobForm').classList.add('hidden');
 document.getElementById('windowsCard').classList.add('hidden');
@@ -1837,6 +2276,7 @@ currentJob=JSON.parse(JSON.stringify(job));
 currentEditingIndex=index;
 showingFinalDetails=false;
 showTab('measure');
+clearWhatsAppImport();
 document.getElementById('emptyState').classList.add('hidden');
 document.getElementById('jobForm').classList.remove('hidden');
 document.getElementById('windowsCard').classList.remove('hidden');
