@@ -456,11 +456,43 @@ let windowIdCounter=1;
 let showingFinalDetails=false;
 let currentMidRailWindowIndex=null;
 let freightCarrier='betta';
-let authToken=localStorage.getItem('decovibes_auth_token')||'';
 let currentUser=null;
 let appInitialized=false;
 
-const PRICE_LISTS = {
+function getStorageItem(key){
+  try{
+    return window.localStorage.getItem(key);
+  }catch(e){
+    return null;
+  }
+}
+
+function setStorageItem(key,value){
+  try{
+    window.localStorage.setItem(key,value);
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function removeStorageItem(key){
+  try{
+    window.localStorage.removeItem(key);
+  }catch(e){}
+}
+
+let authToken=getStorageItem('decovibes_auth_token')||'';
+
+let pricingCatalog=null;
+
+const MATRIX_PRODUCT_MAP={
+  'Blinds-Roller':'rollerBlind',
+  'Blinds-Vertical':'verticalBlind',
+  'Verishade':'verishade'
+};
+
+const LEGACY_PRICE_LISTS = {
   rollerBlinds: {'Vibe': 30, 'Kleen Screen 5%': 30, 'Kew': 33, 'Toorak': 37, 'Cottesloe': 37, 'Sanctuary': 37, 'Le-Reve': 43, 'Balmoral': 45, 'Linesque': 48, 'Cassette Zebra Classic': 110, 'Cassette Zebra Opera': 100, 'Cassette Zebra Modern': 100, 'Cassette Zebra Luxury': 100},
   verticalBlinds: {'Builders Range': 70, 'Category A': 80, 'Category B': 85, 'Category C': 95, 'Category D': 110, 'Category E': 125, 'Category F': 140, 'Category G': 175, 'Category H': 195, 'Category I': 220, 'Category J': 250},
   curtainsSheer: {'Budget Range': 94, 'Group 1 - Most Trending': 105, 'Group 2 - Classic': 110, 'Group 3 - Designer': 120, 'Group 4 - Premium': 125},
@@ -505,7 +537,164 @@ function parseNumberOr(value,fallback){
 }
 
 function normalizeDecimalInput(value){
-  return String(value??'').replace(',', '.').trim();
+  return String(value==null?'':value).replace(',', '.').trim();
+}
+
+function getCatalogProductKey(windowOrKey){
+  const key=typeof windowOrKey==='string'?windowOrKey:getWindowKey(windowOrKey);
+  return MATRIX_PRODUCT_MAP[key]||null;
+}
+
+function getCatalogProduct(windowOrKey){
+  const productKey=getCatalogProductKey(windowOrKey);
+  return productKey&&pricingCatalog&&pricingCatalog.products?pricingCatalog.products[productKey]||null:null;
+}
+
+function getLegacyFabricMap(type,subType){
+  if(type==='Blinds'&&subType==='Roller')return LEGACY_PRICE_LISTS.rollerBlinds;
+  if(type==='Blinds'&&subType==='Vertical')return LEGACY_PRICE_LISTS.verticalBlinds;
+  if(type==='Curtains'&&subType==='Sheer')return LEGACY_PRICE_LISTS.curtainsSheer;
+  if(type==='Curtains'&&subType==='Blockout')return LEGACY_PRICE_LISTS.curtainsBlockout;
+  if(type==='Verishade')return LEGACY_PRICE_LISTS.verishade;
+  return null;
+}
+
+function getCatalogDefaultFabric(windowOrType,subType){
+  const product=typeof windowOrType==='object'?getCatalogProduct(windowOrType):getCatalogProduct({type:windowOrType,subType:subType});
+  return product&&product.defaultFabric?product.defaultFabric:'';
+}
+
+function getFabricCategoryEntry(product,fabricType){
+  if(!product||!fabricType)return null;
+  const normalized=String(fabricType).trim().toLowerCase();
+  if(!normalized)return null;
+  const direct=(product.fabrics||[]).find(item=>String(item.name||'').trim().toLowerCase()===normalized);
+  if(direct)return direct;
+  const categoryMatch=String(fabricType).match(/Category\\s+([A-Za-z0-9]+)/i);
+  if(categoryMatch){
+    const categoryKey=categoryMatch[1];
+    const matrixKey=Object.keys(product.categories||{}).find(name=>name.toLowerCase()===categoryKey.toLowerCase());
+    if(matrixKey)return {name:fabricType,categoryKey:matrixKey};
+  }
+  const classicMatch=normalized.includes('classic');
+  if(classicMatch&&product.categories&&product.categories.Classic)return {name:fabricType,categoryKey:'Classic'};
+  return null;
+}
+
+function getMatrixCategoryKey(w){
+  const product=getCatalogProduct(w);
+  if(!product)return null;
+  const entry=getFabricCategoryEntry(product,w.fabricType);
+  if(entry&&entry.categoryKey&&product.categories&&product.categories[entry.categoryKey])return entry.categoryKey;
+  const fallback=product.defaultFabric?getFabricCategoryEntry(product,product.defaultFabric):null;
+  if(fallback&&fallback.categoryKey&&product.categories&&product.categories[fallback.categoryKey])return fallback.categoryKey;
+  const keys=Object.keys(product.categories||{});
+  return keys.length?keys[0]:null;
+}
+
+function getMatrixPrice(matrix,widthMm,dropMm){
+  if(!matrix||!Array.isArray(matrix.widthsMm)||!Array.isArray(matrix.dropsMm))return null;
+  const width=parseFloat(widthMm)||0;
+  const drop=parseFloat(dropMm)||0;
+  if(width<=0||drop<=0)return null;
+  const widthIndex=matrix.widthsMm.findIndex(v=>width<=v);
+  const dropIndex=matrix.dropsMm.findIndex(v=>drop<=v);
+  const safeWidthIndex=widthIndex>=0?widthIndex:matrix.widthsMm.length-1;
+  const safeDropIndex=dropIndex>=0?dropIndex:matrix.dropsMm.length-1;
+  const value=matrix.prices&&matrix.prices[safeDropIndex]?matrix.prices[safeDropIndex][safeWidthIndex]:null;
+  return typeof value==='number'?value:null;
+}
+
+function getWindowPricingDetails(w,job=currentJob){
+  normalizeWindowOptionState(w);
+  const width=parseFloat(w.width)||0;
+  const drop=parseFloat(w.drop)||0;
+  const key=getWindowKey(w);
+  const jobRates=job&&job.rates?job.rates:null;
+  const jobMultipliers=job&&job.multipliers?job.multipliers:null;
+  const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(jobMultipliers?jobMultipliers[key]:undefined,1));
+  const optionConfig=getWindowOptionConfig(w);
+  const fixedExtraTotal=getSelectedNamedItems(w.selectedFixedExtras,optionConfig.fixed).reduce((sum,item)=>sum+parseNumberOr(item.amount,0),0);
+  const percentExtraTotal=getSelectedNamedItems(w.selectedPercentExtras,optionConfig.percent).reduce((sum,item)=>sum+parseNumberOr(item.percent,0),0);
+  const motorisationCost=parseNumberOr(w.motorisationCost,0);
+  const manualProductExtra=parseNumberOr(w.manualProductExtra,0);
+  const product=getCatalogProduct(w);
+  const categoryKey=getMatrixCategoryKey(w);
+  const matrix=product&&categoryKey&&product.categories?product.categories[categoryKey]:null;
+  const autoMatrixPrice=getMatrixPrice(matrix,width,drop);
+  const hasManualMatrixOverride=String(w.pricingModeOverride||'')==='manual'&&w.rateOverride!==''&&w.rateOverride!==null&&w.rateOverride!==undefined;
+  if(autoMatrixPrice!==null||hasManualMatrixOverride){
+    const baseSupply=hasManualMatrixOverride?parseNumberOr(w.rateOverride,autoMatrixPrice||0):autoMatrixPrice;
+    const safeBase=typeof baseSupply==='number'&&!Number.isNaN(baseSupply)?baseSupply:0;
+    const supplyCost=(safeBase*(1+(percentExtraTotal/100)))+fixedExtraTotal+motorisationCost+manualProductExtra;
+    return {
+      key,
+      multiplier,
+      supplyCost,
+      subtotal:supplyCost*multiplier,
+      displayRate:safeBase,
+      displayUnit:'per blind',
+      pricingMode:'matrix',
+      categoryKey,
+      optionTotal:supplyCost-safeBase
+    };
+  }
+
+  const area=(width*drop)/1000000;
+  const unitQty=w.type==='Curtains'?(width/1000):area;
+  const rate=parseNumberOr(w.rateOverride,parseNumberOr(jobRates?jobRates[key]:undefined,parseNumberOr(defaultRates[key],0)));
+  const baseSupply=unitQty*rate;
+  const supplyCost=(baseSupply*(1+(percentExtraTotal/100)))+fixedExtraTotal+motorisationCost+manualProductExtra;
+  return {
+    key,
+    multiplier,
+    supplyCost,
+    subtotal:supplyCost*multiplier,
+    displayRate:rate,
+    displayUnit:w.type==='Curtains'?'$/m':'$/m²',
+    pricingMode:'rate',
+    categoryKey:null,
+    optionTotal:supplyCost-baseSupply
+  };
+}
+
+async function loadPricingCatalog(){
+  try{
+    const response=await fetch('./data/carter-pricing.json',{cache:'no-store'});
+    if(!response.ok)throw new Error('pricing catalog unavailable');
+    pricingCatalog=await response.json();
+  }catch(e){
+    pricingCatalog=null;
+    console.warn('Pricing catalog not loaded, using legacy price lists.',e);
+  }
+}
+
+function ensureArray(value){
+  return Array.isArray(value)?value:[];
+}
+
+function getSelectedNamedItems(names, options){
+  const selected=new Set(ensureArray(names));
+  return ensureArray(options).filter(item=>selected.has(item.name));
+}
+
+function getWindowOptionConfig(w){
+  const product=getCatalogProduct(w);
+  return {
+    fixed: product&&product.extras?ensureArray(product.extras.fixed):[],
+    percent: product&&product.extras?ensureArray(product.extras.percent):[],
+    manual: product&&product.extras?ensureArray(product.extras.manual):[],
+    motorisation: product?ensureArray(product.motorisation):[]
+  };
+}
+
+function normalizeWindowOptionState(w){
+  if(!w)return;
+  w.selectedFixedExtras=ensureArray(w.selectedFixedExtras);
+  w.selectedPercentExtras=ensureArray(w.selectedPercentExtras);
+  if(w.manualProductExtra===undefined||w.manualProductExtra===null)w.manualProductExtra='';
+  if(w.motorisationChoice===undefined||w.motorisationChoice===null)w.motorisationChoice='';
+  if(w.motorisationCost===undefined||w.motorisationCost===null)w.motorisationCost='';
 }
 
 function renderBrandingThemeOptions(){
@@ -533,12 +722,13 @@ el.style.color=color||'#6B7280';
 }
 
 function handleJobMultiplierBlur(idx,el){
-  const normalized=normalizeDecimalInput(el?.value);
+  const normalized=normalizeDecimalInput(el&&el.value);
   const parsed=parseFloat(normalized);
   if(!normalized||Number.isNaN(parsed)){
-    const w=currentJob?.windows?.[idx];
+    const w=currentJob&&currentJob.windows?currentJob.windows[idx]:null;
     const key=w?getWindowKey(w):null;
-    const fallback=parseNumberOr(w?.multiplierOverride,parseNumberOr(currentJob?.multipliers?.[key],parseNumberOr(defaultMultipliers[key],1.8)));
+    const jobMultipliers=currentJob&&currentJob.multipliers?currentJob.multipliers:null;
+    const fallback=parseNumberOr(w&&w.multiplierOverride,parseNumberOr(jobMultipliers&&key?jobMultipliers[key]:undefined,parseNumberOr(defaultMultipliers[key],1.8)));
     el.value=String(fallback);
   }else{
     el.value=String(parsed);
@@ -569,9 +759,10 @@ chip.textContent='Not logged in';
 }
 
 async function authFetch(url,options={}){
-const headers={...(options.headers||{})};
+const headers=Object.assign({},options.headers||{});
 if(authToken)headers.Authorization=`Bearer ${authToken}`;
-const response=await fetch(url,{...options,headers});
+const fetchOptions=Object.assign({},options,{headers:headers});
+const response=await fetch(url,fetchOptions);
 if(response.status===401){
 logoutEmployee(true);
 throw new Error('Session expired. Please log in again.');
@@ -594,7 +785,7 @@ return true;
 }catch(e){
 authToken='';
 currentUser=null;
-localStorage.removeItem('decovibes_auth_token');
+removeStorageItem('decovibes_auth_token');
 updateUserChip();
 return false;
 }
@@ -602,8 +793,10 @@ return false;
 
 async function loginEmployee(){
 setAuthError('');
-const email=document.getElementById('loginEmail')?.value?.trim();
-const password=document.getElementById('loginPassword')?.value||'';
+const loginEmailEl=document.getElementById('loginEmail');
+const loginPasswordEl=document.getElementById('loginPassword');
+const email=loginEmailEl&&loginEmailEl.value?loginEmailEl.value.trim():'';
+const password=loginPasswordEl&&loginPasswordEl.value?loginPasswordEl.value:'';
 if(!email||!password){
 setAuthError('Please enter email and password.');
 return;
@@ -618,7 +811,7 @@ const data=await response.json();
 if(!response.ok||data.error)throw new Error(data.error||'Login failed');
 authToken=data.token;
 currentUser=data.user;
-localStorage.setItem('decovibes_auth_token',authToken);
+setStorageItem('decovibes_auth_token',authToken);
 document.getElementById('authOverlay').classList.add('hidden');
 updateUserChip();
 if(!appInitialized){
@@ -637,7 +830,7 @@ currentUser=null;
 jobs=[];
 updateJobCount();
 appInitialized=false;
-localStorage.removeItem('decovibes_auth_token');
+removeStorageItem('decovibes_auth_token');
 updateUserChip();
 const panel=document.getElementById('employeePanel');
 if(panel)panel.classList.add('hidden');
@@ -658,7 +851,7 @@ const response=await authFetch('/.netlify/functions/employees-list');
 const data=await response.json();
 if(!response.ok||data.error)throw new Error(data.error||'Failed to load employees');
 const idSafe=v=>String(v).replace(/[^a-zA-Z0-9_-]/g,'_');
-const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const rows=(data.employees||[]).map(e=>{
 const sid=idSafe(e.id);
 const disabled=e.active===false;
@@ -687,10 +880,14 @@ document.getElementById('employeeList').innerHTML='<p style="color:#B91C1C">'+er
 
 async function updateEmployee(id,sid){
 document.getElementById('employeeError').textContent='';
-const name=document.getElementById('emp-name-'+sid)?.value?.trim();
-const role=document.getElementById('emp-role-'+sid)?.value||'employee';
-const active=(document.getElementById('emp-active-'+sid)?.value||'true')==='true';
-const password=document.getElementById('emp-pass-'+sid)?.value||'';
+const nameEl=document.getElementById('emp-name-'+sid);
+const roleEl=document.getElementById('emp-role-'+sid);
+const activeEl=document.getElementById('emp-active-'+sid);
+const passwordEl=document.getElementById('emp-pass-'+sid);
+const name=nameEl&&nameEl.value?nameEl.value.trim():'';
+const role=roleEl&&roleEl.value?roleEl.value:'employee';
+const active=((activeEl&&activeEl.value)?activeEl.value:'true')==='true';
+const password=passwordEl&&passwordEl.value?passwordEl.value:'';
 try{
 const response=await authFetch('/.netlify/functions/employees-update',{
 method:'POST',
@@ -709,10 +906,14 @@ document.getElementById('employeeError').textContent=err.message;
 
 async function createEmployee(){
 document.getElementById('employeeError').textContent='';
-const name=document.getElementById('empName')?.value?.trim();
-const email=document.getElementById('empEmail')?.value?.trim();
-const password=document.getElementById('empPassword')?.value||'';
-const role=document.getElementById('empRole')?.value||'employee';
+const nameEl=document.getElementById('empName');
+const emailEl=document.getElementById('empEmail');
+const passwordEl=document.getElementById('empPassword');
+const roleEl=document.getElementById('empRole');
+const name=nameEl&&nameEl.value?nameEl.value.trim():'';
+const email=emailEl&&emailEl.value?emailEl.value.trim():'';
+const password=passwordEl&&passwordEl.value?passwordEl.value:'';
+const role=roleEl&&roleEl.value?roleEl.value:'employee';
 if(!email||!password){
 document.getElementById('employeeError').textContent='Email and password are required.';
 return;
@@ -804,7 +1005,7 @@ if(data.jobs.length===0&&Array.isArray(jobs)&&jobs.length>0){
 await Promise.all(jobs.map(job=>upsertJobCloud(job)));
 }else{
 jobs=data.jobs;
-localStorage.setItem('decovibes_jobs',JSON.stringify(jobs));
+setStorageItem('decovibes_jobs',JSON.stringify(jobs));
 updateJobCount();
 if(!document.getElementById('viewSaved').classList.contains('hidden'))renderSavedJobs();
 }
@@ -815,7 +1016,7 @@ return false;
 }
 
 function loadJobs(){
-const saved=localStorage.getItem('decovibes_jobs');
+const saved=getStorageItem('decovibes_jobs');
 if(saved){try{jobs=JSON.parse(saved)}catch(e){jobs=[]}}
 updateJobCount();
 loadSettings();
@@ -842,7 +1043,7 @@ function updateJobExtras(){
 }
 
 function saveJobs(){
-localStorage.setItem('decovibes_jobs',JSON.stringify(jobs));
+setStorageItem('decovibes_jobs',JSON.stringify(jobs));
 updateJobCount();
 }
 
@@ -870,7 +1071,7 @@ body:JSON.stringify({id})
 
 function loadSettings(){
 Object.keys(defaultRates).forEach(key=>{
-const saved=localStorage.getItem('rate-'+key);
+const saved=getStorageItem('rate-'+key);
 if(saved!==null){
   const parsed=parseFloat(saved);
   if(!Number.isNaN(parsed))defaultRates[key]=parsed;
@@ -879,7 +1080,7 @@ const el=document.getElementById('rate-'+key);
 if(el)el.value=defaultRates[key];
 });
 Object.keys(defaultMultipliers).forEach(key=>{
-const saved=localStorage.getItem('mult-'+key);
+const saved=getStorageItem('mult-'+key);
 if(saved!==null){
   const parsed=parseFloat(normalizeDecimalInput(saved));
   if(!Number.isNaN(parsed))defaultMultipliers[key]=parsed;
@@ -889,11 +1090,11 @@ if(el){
   el.value=parseNumberOr(defaultMultipliers[key],1.8);
 }
 });
-const savedFreight=localStorage.getItem('freightCarrier')||'betta';
+const savedFreight=getStorageItem('freightCarrier')||'betta';
 freightCarrier=savedFreight;
 const freightEl=document.getElementById('freight-carrier');
 if(freightEl)freightEl.value=savedFreight;
-const savedFreightConfig=localStorage.getItem('freightConfig');
+const savedFreightConfig=getStorageItem('freightConfig');
 if(savedFreightConfig){
   try{
     const obj=JSON.parse(savedFreightConfig);
@@ -908,17 +1109,17 @@ if(savedFreightConfig){
     }
   }catch(e){}
 }
-const savedQuoteExpiryDays=localStorage.getItem('quoteExpiryDays');
+const savedQuoteExpiryDays=getStorageItem('quoteExpiryDays');
 if(savedQuoteExpiryDays!==null){
   const parsed=parseInt(savedQuoteExpiryDays,10);
   if(!Number.isNaN(parsed)&&parsed>=0)defaultQuoteExpiryDays=parsed;
 }
-const savedQuoteBrandingThemeId=localStorage.getItem('quoteBrandingThemeId');
+const savedQuoteBrandingThemeId=getStorageItem('quoteBrandingThemeId');
 if(savedQuoteBrandingThemeId!==null)defaultQuoteBrandingThemeId=savedQuoteBrandingThemeId;
 renderBrandingThemeOptions();
 const quoteExpiryEl=document.getElementById('quoteExpiryDays');
 if(quoteExpiryEl)quoteExpiryEl.value=defaultQuoteExpiryDays;
-const savedQuoteTerms=localStorage.getItem('quoteTerms');
+const savedQuoteTerms=getStorageItem('quoteTerms');
 if(savedQuoteTerms!==null)defaultQuoteTerms=savedQuoteTerms;
 const quoteTermsEl=document.getElementById('quoteTerms');
 if(quoteTermsEl)quoteTermsEl.value=defaultQuoteTerms;
@@ -939,7 +1140,7 @@ Object.entries(freightMap).forEach(([id,val])=>{
 
 // Install charges
 Object.keys(defaultInstallCharges).forEach(key=>{
-  const saved=localStorage.getItem('install-'+key);
+  const saved=getStorageItem('install-'+key);
   if(saved!==null){
     const parsed=parseFloat(saved);
     if(!Number.isNaN(parsed))defaultInstallCharges[key]=parsed;
@@ -957,7 +1158,7 @@ const installShuttersEl=document.getElementById('install-Shutters');
 if(installShuttersEl)installShuttersEl.value=defaultInstallCharges['Shutters'];
 
 // Logistics config
-const savedLog=localStorage.getItem('logisticsConfig');
+const savedLog=getStorageItem('logisticsConfig');
 if(savedLog){
   try{
     const obj=JSON.parse(savedLog);
@@ -984,7 +1185,7 @@ const el=document.getElementById('rate-'+key);
 if(el){
 const val=parseOr(el,defaultRates[key]);
 defaultRates[key]=val;
-localStorage.setItem('rate-'+key,val);
+setStorageItem('rate-'+key,val);
 }
 });
 Object.keys(defaultMultipliers).forEach(key=>{
@@ -1003,28 +1204,29 @@ if(Number.isNaN(parsed)){
 el.value=normalized;
 const val=parsed;
 defaultMultipliers[key]=val;
-localStorage.setItem('mult-'+key,val);
+setStorageItem('mult-'+key,val);
 }
 });
-const selectedFreight=document.getElementById('freight-carrier')?.value||'betta';
+const freightCarrierEl=document.getElementById('freight-carrier');
+const selectedFreight=freightCarrierEl&&freightCarrierEl.value?freightCarrierEl.value:'betta';
 freightCarrier=selectedFreight;
-localStorage.setItem('freightCarrier',selectedFreight);
+setStorageItem('freightCarrier',selectedFreight);
 const quoteBrandingThemeEl=document.getElementById('quoteBrandingTheme');
 if(quoteBrandingThemeEl){
   defaultQuoteBrandingThemeId=quoteBrandingThemeEl.value||'';
-  localStorage.setItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
+  setStorageItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
 }
 const quoteExpiryEl=document.getElementById('quoteExpiryDays');
 if(quoteExpiryEl){
   const parsed=parseInt(quoteExpiryEl.value,10);
   defaultQuoteExpiryDays=(!Number.isNaN(parsed)&&parsed>=0)?parsed:defaultQuoteExpiryDays;
   quoteExpiryEl.value=String(defaultQuoteExpiryDays);
-  localStorage.setItem('quoteExpiryDays',defaultQuoteExpiryDays);
+  setStorageItem('quoteExpiryDays',defaultQuoteExpiryDays);
 }
 const quoteTermsEl=document.getElementById('quoteTerms');
 if(quoteTermsEl){
   defaultQuoteTerms=quoteTermsEl.value||'';
-  localStorage.setItem('quoteTerms',defaultQuoteTerms);
+  setStorageItem('quoteTerms',defaultQuoteTerms);
 }
 defaultFreightConfig.betta.base=parseOr(document.getElementById('freight-betta-base'),defaultFreightConfig.betta.base);
 defaultFreightConfig.betta.perMeter=parseOr(document.getElementById('freight-betta-perMeter'),defaultFreightConfig.betta.perMeter);
@@ -1034,19 +1236,19 @@ defaultFreightConfig.couriers.base=parseOr(document.getElementById('freight-cour
 defaultFreightConfig.couriers.perMeter=parseOr(document.getElementById('freight-couriers-perMeter'),defaultFreightConfig.couriers.perMeter);
 defaultFreightConfig.couriers.thresholdM=parseOr(document.getElementById('freight-couriers-threshold'),defaultFreightConfig.couriers.thresholdM);
 defaultFreightConfig.couriers.overLength=parseOr(document.getElementById('freight-couriers-overLength'),defaultFreightConfig.couriers.overLength);
-localStorage.setItem('freightConfig',JSON.stringify(defaultFreightConfig));
+setStorageItem('freightConfig',JSON.stringify(defaultFreightConfig));
 
 // Save install charges (grouped inputs)
 const vRoller=parseOr(document.getElementById('install-Blinds-Roller'),defaultInstallCharges['Blinds-Roller']);
-['Blinds-Roller','Blinds-Zebra','Blinds-Venetian','Blinds-Trublockout'].forEach(k=>{defaultInstallCharges[k]=vRoller; localStorage.setItem('install-'+k,vRoller);});
+['Blinds-Roller','Blinds-Zebra','Blinds-Venetian','Blinds-Trublockout'].forEach(k=>{defaultInstallCharges[k]=vRoller; setStorageItem('install-'+k,vRoller);});
 const vVertical=parseOr(document.getElementById('install-Blinds-Vertical'),defaultInstallCharges['Blinds-Vertical']);
-defaultInstallCharges['Blinds-Vertical']=vVertical; localStorage.setItem('install-Blinds-Vertical',vVertical);
+defaultInstallCharges['Blinds-Vertical']=vVertical; setStorageItem('install-Blinds-Vertical',vVertical);
 const vCurt=parseOr(document.getElementById('install-Curtains'),defaultInstallCharges['Curtains-Sheer']);
-['Curtains-Sheer','Curtains-Blockout'].forEach(k=>{defaultInstallCharges[k]=vCurt; localStorage.setItem('install-'+k,vCurt);});
+['Curtains-Sheer','Curtains-Blockout'].forEach(k=>{defaultInstallCharges[k]=vCurt; setStorageItem('install-'+k,vCurt);});
 const vVer=parseOr(document.getElementById('install-Verishade'),defaultInstallCharges['Verishade']);
-defaultInstallCharges['Verishade']=vVer; localStorage.setItem('install-Verishade',vVer);
+defaultInstallCharges['Verishade']=vVer; setStorageItem('install-Verishade',vVer);
 const vSh=parseOr(document.getElementById('install-Shutters'),defaultInstallCharges['Shutters']);
-defaultInstallCharges['Shutters']=vSh; localStorage.setItem('install-Shutters',vSh);
+defaultInstallCharges['Shutters']=vSh; setStorageItem('install-Shutters',vSh);
 
 // Save logistics
 defaultLogisticsConfig.base=parseOr(document.getElementById('log-base'),defaultLogisticsConfig.base);
@@ -1054,7 +1256,7 @@ defaultLogisticsConfig.mediumAdd=parseOr(document.getElementById('log-mediumAdd'
 defaultLogisticsConfig.largeAdd=parseOr(document.getElementById('log-largeAdd'),defaultLogisticsConfig.largeAdd);
 defaultLogisticsConfig.mediumWidthMm=parseOr(document.getElementById('log-mediumWidth'),defaultLogisticsConfig.mediumWidthMm);
 defaultLogisticsConfig.largeWidthMm=parseOr(document.getElementById('log-largeWidth'),defaultLogisticsConfig.largeWidthMm);
-localStorage.setItem('logisticsConfig',JSON.stringify(defaultLogisticsConfig));
+setStorageItem('logisticsConfig',JSON.stringify(defaultLogisticsConfig));
 
 alert('✓ Settings saved!');
 document.getElementById('settingsPanel').classList.add('hidden');
@@ -1067,7 +1269,7 @@ document.getElementById('settingsPanel').classList.toggle('hidden');
 
 function updateFreightCarrier(){
 freightCarrier=document.getElementById('freight-carrier').value;
-localStorage.setItem('freightCarrier',freightCarrier);
+setStorageItem('freightCarrier',freightCarrier);
 if(currentJob)currentJob.freightCarrier=freightCarrier;
 if(currentJob)updateLiveSummary();
 }
@@ -1085,7 +1287,7 @@ if(tab==='saved')renderSavedJobs();
 }
 
 function startNewJob(){
-currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],windows:[],rates:{...defaultRates},multipliers:{...defaultMultipliers},freightCost:0,freightCarrier:freightCarrier};
+currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],windows:[],rates:Object.assign({},defaultRates),multipliers:Object.assign({},defaultMultipliers),freightCost:0,freightCarrier:freightCarrier};
 showingFinalDetails=false;
 document.getElementById('emptyState').classList.add('hidden');
 document.getElementById('jobForm').classList.remove('hidden');
@@ -1099,7 +1301,7 @@ updateWindowsDisplay();
 }
 
 function addWindow(){
-currentJob.windows.push({id:windowIdCounter++,room:'',windowNumber:'',type:'Blinds',subType:'Roller',fabricType:'Toorak',width:'',drop:'',recessFit:false,faceFit:false,ceilingFit:false,notes:'',midRailPosition:null,installOverride:'',logisticsOverride:''});
+currentJob.windows.push({id:windowIdCounter++,room:'',windowNumber:'',type:'Blinds',subType:'Roller',fabricType:getFabricTypeDefault('Blinds','Roller'),width:'',drop:'',recessFit:false,faceFit:false,ceilingFit:false,notes:'',midRailPosition:null,installOverride:'',logisticsOverride:'',pricingModeOverride:'',selectedFixedExtras:[],selectedPercentExtras:[],manualProductExtra:'',motorisationChoice:'',motorisationCost:''});
 updateWindowsDisplay();
 }
 
@@ -1160,6 +1362,13 @@ function updateWindowType(index,type){
 currentJob.windows[index].type=type;
 currentJob.windows[index].subType=type==='Blinds'?'Roller':type==='Curtains'?'Sheer':'-';
 currentJob.windows[index].fabricType=getFabricTypeDefault(type,currentJob.windows[index].subType);
+currentJob.windows[index].rateOverride='';
+currentJob.windows[index].pricingModeOverride='';
+currentJob.windows[index].selectedFixedExtras=[];
+currentJob.windows[index].selectedPercentExtras=[];
+currentJob.windows[index].manualProductExtra='';
+currentJob.windows[index].motorisationChoice='';
+currentJob.windows[index].motorisationCost='';
 currentJob.windows[index].recessFit=false;
 currentJob.windows[index].faceFit=false;
 currentJob.windows[index].ceilingFit=false;
@@ -1168,6 +1377,8 @@ updateWindowsDisplay();
 }
 
 function getFabricTypeDefault(type,subType){
+const catalogDefault=getCatalogDefaultFabric(type,subType);
+if(catalogDefault)return catalogDefault;
 if(type==='Blinds'&&subType==='Roller')return 'Toorak';
 if(type==='Blinds'&&subType==='Vertical')return 'Category A';
 if(type==='Curtains'&&subType==='Sheer')return 'Group 1 - Most Trending';
@@ -1178,6 +1389,16 @@ return '';
 
 function updateWindowField(index,field,value){
 currentJob.windows[index][field]=value;
+if(field==='subType'){
+currentJob.windows[index].fabricType=getFabricTypeDefault(currentJob.windows[index].type,currentJob.windows[index].subType);
+currentJob.windows[index].rateOverride='';
+currentJob.windows[index].pricingModeOverride='';
+currentJob.windows[index].selectedFixedExtras=[];
+currentJob.windows[index].selectedPercentExtras=[];
+currentJob.windows[index].manualProductExtra='';
+currentJob.windows[index].motorisationChoice='';
+currentJob.windows[index].motorisationCost='';
+}
 renderWindows();
 updateLiveSummary();
 }
@@ -1197,7 +1418,7 @@ function getInstallChargeForWindow(w){
   // Allow per-window override (EX GST)
   const override=parseFloat(w.installOverride);
   if(!isNaN(override)) return override;
-  return defaultInstallCharges[key]??0;
+  return defaultInstallCharges[key]!=null?defaultInstallCharges[key]:0;
 }
 
 function getLogisticsChargeForWindow(w){
@@ -1218,17 +1439,14 @@ job.windows.forEach(w=>{
 const width=parseFloat(w.width)||0;
 const drop=parseFloat(w.drop)||0;
 if(width===0||drop===0)return;
-const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
+const pricing=getWindowPricingDetails(w,job);
+const key=pricing.key;
 if(!totals[key])totals[key]={totalWidth:0,sqm:0,supplyCost:0,markup:0,subtotal:0};
 totals[key].totalWidth+=width;
 const area=(width*drop)/1000000;
 if(w.type!=='Curtains')totals[key].sqm+=area;
-
-const unitQty=w.type==='Curtains'?(width/1000):area;
-const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key], parseNumberOr(defaultRates[key],0)));
-const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
-const supplyCost=unitQty*rate;
-const subtotal=supplyCost*multiplier;
+const supplyCost=pricing.supplyCost;
+const subtotal=pricing.subtotal;
 totals[key].supplyCost+=supplyCost;
 totals[key].markup+=(subtotal-supplyCost);
 totals[key].subtotal+=subtotal;
@@ -1360,15 +1578,24 @@ document.getElementById('finalSummary').innerHTML=summaryHtml;
 
 // Render pricing adjustments table
 let html='<table class="price-table" style="width:100%;border-collapse:collapse">';
-html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Rate</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
+html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Options</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Base Price</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
 currentJob.windows.forEach((w,idx)=>{
-const key=getWindowKey(w);
-const unit=w.type==='Curtains'?'$/m':'$/m²';
-const currentRate=parseNumberOr(w.rateOverride,parseNumberOr(currentJob.rates[key],parseNumberOr(defaultRates[key],0)));
-const currentMult=parseNumberOr(w.multiplierOverride,parseNumberOr(currentJob.multipliers[key],parseNumberOr(defaultMultipliers[key],1.8)));
+normalizeWindowOptionState(w);
+const pricing=getWindowPricingDetails(w,currentJob);
+const currentRate=pricing.displayRate;
+const currentMult=pricing.multiplier;
 const fabricOptions=getFabricOptions(w.type,w.subType);
 const fabricSelect=fabricOptions.length>0?`<select id="jobfabric-${idx}" onchange="updateJobFabric(${idx})" style="width:160px;padding:10px;border:2px solid #D1D5DB;border-radius:6px">${fabricOptions.map(f=>`<option value="${f}" ${w.fabricType===f?'selected':''}>${f}</option>`).join('')}</select>`:`<span style="color:#999">-</span>`;
-html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px">${fabricSelect}</td><td style="padding:12px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px"><input type="number" id="jobrate-${idx}" value="${currentRate}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${unit}</span></td><td style="padding:12px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
+const optionConfig=getWindowOptionConfig(w);
+const motorOptions=optionConfig.motorisation.flatMap(group=>group.options.map(option=>({value:`${group.group}::${option.name}`,label:`${group.group} - ${option.name} ($${parseNumberOr(option.amount,0).toFixed(2)})`})));
+const motorHtml=motorOptions.length?`<div style="margin-bottom:8px"><select id="jobmotor-${idx}" onchange="updateJobMotorisation(${idx})" style="width:220px;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No motorisation</option>${motorOptions.map(option=>`<option value="${option.value}" ${w.motorisationChoice===option.value?'selected':''}>${option.label}</option>`).join('')}</select></div>`:'';
+const fixedHtml=optionConfig.fixed.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">${optionConfig.fixed.map(item=>`<label style="font-size:12px;color:#374151;display:flex;gap:6px;align-items:flex-start"><input type="checkbox" ${ensureArray(w.selectedFixedExtras).includes(item.name)?'checked':''} onchange='toggleJobExtra(${idx},${JSON.stringify(item.name)},this.checked,"fixed")'> <span>${item.name} (+$${parseNumberOr(item.amount,0).toFixed(2)})</span></label>`).join('')}</div>`:'';
+const percentHtml=optionConfig.percent.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">${optionConfig.percent.map(item=>`<label style="font-size:12px;color:#374151;display:flex;gap:6px;align-items:flex-start"><input type="checkbox" ${ensureArray(w.selectedPercentExtras).includes(item.name)?'checked':''} onchange='toggleJobExtra(${idx},${JSON.stringify(item.name)},this.checked,"percent")'> <span>${item.name} (+${parseNumberOr(item.percent,0).toFixed(0)}%)</span></label>`).join('')}</div>`:'';
+const manualNotes=optionConfig.manual.length?`<div style="font-size:11px;color:#6B7280;margin-bottom:6px">${optionConfig.manual.map(item=>`${item.name}: ${item.pricingText}`).join(' • ')}</div>`:'';
+const manualExtraHtml=`<div style="display:flex;align-items:center;gap:6px"><input type="number" value="${w.manualProductExtra!==''?w.manualProductExtra:''}" oninput="updateManualProductExtra(${idx},this.value)" placeholder="manual extra" style="width:100px;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><span style="font-size:11px;color:#6B7280">Added before markup</span></div>`;
+const optionSummary=pricing.optionTotal?`<div style="font-size:11px;color:#065F46;margin-top:6px">Options total: $${pricing.optionTotal.toFixed(2)}</div>`:'';
+const optionsHtml=(motorHtml||fixedHtml||percentHtml||manualNotes||manualExtraHtml)?`${motorHtml}${fixedHtml}${percentHtml}${manualNotes}${manualExtraHtml}${optionSummary}`:`<span style="color:#999;font-size:12px">No extra options</span>`;
+html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px">${fabricSelect}</td><td style="padding:12px;min-width:280px">${optionsHtml}</td><td style="padding:12px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
 });
 html+='</tbody></table>';
 html+=`<div class="freight-note" style="margin-top:15px">🔧 <strong>Install:</strong> $${calc.installTotal.toFixed(2)} • 🚚 <strong>Logistics:</strong> $${calc.logisticsTotal.toFixed(2)} (auto per item, editable above) • <strong>Freight carrier:</strong> $${calc.freight.toFixed(2)} total (distributed $${calc.freightPerProduct.toFixed(2)}/product)</div>`;
@@ -1376,11 +1603,10 @@ document.getElementById('pricingAdjustments').innerHTML=html;
 }
 
 function getFabricOptions(type,subType){
-if(type==='Blinds'&&subType==='Roller')return Object.keys(PRICE_LISTS.rollerBlinds);
-if(type==='Blinds'&&subType==='Vertical')return Object.keys(PRICE_LISTS.verticalBlinds);
-if(type==='Curtains'&&subType==='Sheer')return Object.keys(PRICE_LISTS.curtainsSheer);
-if(type==='Curtains'&&subType==='Blockout')return Object.keys(PRICE_LISTS.curtainsBlockout);
-if(type==='Verishade')return Object.keys(PRICE_LISTS.verishade);
+const product=getCatalogProduct({type,subType});
+if(product&&Array.isArray(product.fabrics)&&product.fabrics.length)return product.fabrics.map(item=>item.name);
+const fallback=getLegacyFabricMap(type,subType);
+if(fallback)return Object.keys(fallback);
 return [];
 }
 
@@ -1388,17 +1614,60 @@ function updateJobFabric(idx){
 const fabricType=document.getElementById('jobfabric-'+idx).value;
 currentJob.windows[idx].fabricType=fabricType;
 const w=currentJob.windows[idx];
-const key=getWindowKey(w);
-let newRate=0;
-if(w.type==='Blinds'&&w.subType==='Roller'){newRate=PRICE_LISTS.rollerBlinds[fabricType]||defaultRates[key];}
-else if(w.type==='Blinds'&&w.subType==='Vertical'){newRate=PRICE_LISTS.verticalBlinds[fabricType]||defaultRates[key];}
-else if(w.type==='Curtains'&&w.subType==='Sheer'){newRate=PRICE_LISTS.curtainsSheer[fabricType]||defaultRates[key];}
-else if(w.type==='Curtains'&&w.subType==='Blockout'){newRate=PRICE_LISTS.curtainsBlockout[fabricType]||defaultRates[key];}
-else if(w.type==='Verishade'){newRate=PRICE_LISTS.verishade[fabricType]||defaultRates[key];}
-else{newRate=defaultRates[key];}
-document.getElementById('jobrate-'+idx).value=newRate;
-currentJob.windows[idx].rateOverride=newRate;
+const legacyMap=getLegacyFabricMap(w.type,w.subType);
+if(getCatalogProduct(w)){
+  if(String(w.pricingModeOverride||'')!=='manual'){
+    currentJob.windows[idx].rateOverride='';
+  }
+}else{
+  const key=getWindowKey(w);
+  const newRate=legacyMap&&legacyMap[fabricType]!=null?legacyMap[fabricType]:defaultRates[key];
+  document.getElementById('jobrate-'+idx).value=newRate;
+  currentJob.windows[idx].rateOverride=newRate;
+}
 updateJobRates();
+}
+
+function updateJobMotorisation(idx){
+  const w=currentJob.windows[idx];
+  normalizeWindowOptionState(w);
+  const select=document.getElementById('jobmotor-'+idx);
+  const choice=select?select.value:'';
+  w.motorisationChoice=choice;
+  if(!choice){
+    w.motorisationCost='';
+    updateJobRates();
+    return;
+  }
+  const config=getWindowOptionConfig(w);
+  let found=null;
+  config.motorisation.forEach(group=>{
+    group.options.forEach(option=>{
+      const optionKey=`${group.group}::${option.name}`;
+      if(optionKey===choice)found=option;
+    });
+  });
+  w.motorisationCost=found?parseNumberOr(found.amount,0):'';
+  updateJobRates();
+}
+
+function toggleJobExtra(idx,name,checked,type){
+  const w=currentJob.windows[idx];
+  normalizeWindowOptionState(w);
+  const key=type==='percent'?'selectedPercentExtras':'selectedFixedExtras';
+  const next=new Set(ensureArray(w[key]));
+  if(checked)next.add(name);
+  else next.delete(name);
+  w[key]=Array.from(next);
+  updateJobRates();
+}
+
+function updateManualProductExtra(idx,value){
+  const w=currentJob.windows[idx];
+  normalizeWindowOptionState(w);
+  const normalized=normalizeDecimalInput(value);
+  w.manualProductExtra=normalized;
+  updateJobRates();
 }
 
 function updateJobRates(changedIdx=null){
@@ -1407,7 +1676,20 @@ if(changedIdx!==null&&changedIdx!==undefined){
   if(w){
     const rateEl=document.getElementById('jobrate-'+changedIdx);
     const multEl=document.getElementById('jobmult-'+changedIdx);
-    if(rateEl)w.rateOverride=parseNumberOr(rateEl.value,0);
+    if(rateEl){
+      const normalized=normalizeDecimalInput(rateEl.value);
+      if(getCatalogProduct(w)){
+        if(normalized===''){
+          w.rateOverride='';
+          w.pricingModeOverride='';
+        }else{
+          w.rateOverride=parseNumberOr(normalized,0);
+          w.pricingModeOverride='manual';
+        }
+      }else{
+        w.rateOverride=parseNumberOr(normalized,0);
+      }
+    }
     if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
   }
 }
@@ -1415,7 +1697,7 @@ if(changedIdx!==null&&changedIdx!==undefined){
 currentJob.windows.forEach((w,idx)=>{
 const rateEl=document.getElementById('jobrate-'+idx);
 const multEl=document.getElementById('jobmult-'+idx);
-if(rateEl)w.rateOverride=parseNumberOr(rateEl.value,0);
+if(rateEl&&!getCatalogProduct(w))w.rateOverride=parseNumberOr(rateEl.value,0);
 if(multEl)w.multiplierOverride=parseNumberOr(multEl.value,1);
 });
 updateLiveSummary();
@@ -1510,7 +1792,7 @@ alert('✏️ Editing: '+job.clientName);
 
 async function deleteJob(index){
 if(confirm('Delete this job?')){
-const id=jobs[index]?.id;
+const id=jobs[index]?jobs[index].id:undefined;
 jobs.splice(index,1);
 saveJobs();
 await deleteJobCloud(id);
@@ -1619,7 +1901,7 @@ try{
   xeroDefaultBrandingThemeId=data.defaultThemeId||'';
   if(!defaultQuoteBrandingThemeId&&xeroDefaultBrandingThemeId){
     defaultQuoteBrandingThemeId=xeroDefaultBrandingThemeId;
-    localStorage.setItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
+    setStorageItem('quoteBrandingThemeId',defaultQuoteBrandingThemeId);
   }
   renderBrandingThemeOptions();
   if(xeroBrandingThemes.length){
@@ -1683,15 +1965,12 @@ const freightShares=calc.freightShares||[];
 const lineItems=job.windows.map((w,i)=>{
 const width=parseFloat(w.width)||0;
 const drop=parseFloat(w.drop)||0;
-const key=w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
-const rate=parseNumberOr(w.rateOverride,parseNumberOr(job.rates?.[key],parseNumberOr(defaultRates[key],0)));
-const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(job.multipliers?.[key],1));
-const area=w.type==='Curtains'?(width/1000):((width*drop)/1000000);
+const pricing=getWindowPricingDetails(w,job);
 // Hidden extras (install + logistics + allocated freight) are bundled into the UnitAmount.
 const install=getInstallChargeForWindow(w);
 const logistics=getLogisticsChargeForWindow(w);
 const freightShare=(freightShares[i]||0);
-const price=(area*rate*multiplier+install+logistics+freightShare).toFixed(2);
+const price=(pricing.subtotal+install+logistics+freightShare).toFixed(2);
 let desc=`${w.room||'Window '+(i+1)} - ${w.type} ${w.subType}`;
 if(w.color)desc+=` (${w.color})`;
 if(w.fabricType)desc+=` - ${w.fabricType}`;
@@ -1724,7 +2003,8 @@ alert('❌ Export failed:\n\n'+err.message);
 }
 }
 
-window.addEventListener('load',()=>{
+window.addEventListener('load',async ()=>{
+await loadPricingCatalog();
 handleXeroCallback();
 const redirectUriField=document.getElementById('currentRedirectUri');
 if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
