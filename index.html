@@ -588,13 +588,26 @@ function getFabricCategoryEntry(product,fabricType){
   return null;
 }
 
+function normalizeMatrixCategoryKey(product,categoryKey){
+  if(!product||!product.categories||!categoryKey)return null;
+  const raw=String(categoryKey).trim();
+  if(!raw)return null;
+  if(product.categories[raw])return raw;
+  const stripped=raw.replace(/^Category\s+/i,'').trim();
+  if(stripped&&product.categories[stripped])return stripped;
+  const matched=Object.keys(product.categories).find(name=>name.toLowerCase()===raw.toLowerCase()||name.toLowerCase()===stripped.toLowerCase());
+  return matched||null;
+}
+
 function getMatrixCategoryKey(w){
   const product=getCatalogProduct(w);
   if(!product)return null;
   const entry=getFabricCategoryEntry(product,w.fabricType);
-  if(entry&&entry.categoryKey&&product.categories&&product.categories[entry.categoryKey])return entry.categoryKey;
+  const normalizedEntryKey=entry?normalizeMatrixCategoryKey(product,entry.categoryKey):null;
+  if(normalizedEntryKey)return normalizedEntryKey;
   const fallback=product.defaultFabric?getFabricCategoryEntry(product,product.defaultFabric):null;
-  if(fallback&&fallback.categoryKey&&product.categories&&product.categories[fallback.categoryKey])return fallback.categoryKey;
+  const normalizedFallbackKey=fallback?normalizeMatrixCategoryKey(product,fallback.categoryKey):null;
+  if(normalizedFallbackKey)return normalizedFallbackKey;
   const keys=Object.keys(product.categories||{});
   return keys.length?keys[0]:null;
 }
@@ -638,6 +651,7 @@ function getWindowPricingDetails(w,job=currentJob){
       key,
       multiplier,
       supplyCost,
+      supplyCostIncGst:supplyCost*(1+GST_RATE),
       subtotal:supplyCost*multiplier,
       displayRate:safeBase,
       displayUnit:'per blind',
@@ -656,6 +670,7 @@ function getWindowPricingDetails(w,job=currentJob){
     key,
     multiplier,
     supplyCost,
+    supplyCostIncGst:supplyCost*(1+GST_RATE),
     subtotal:supplyCost*multiplier,
     displayRate:rate,
     displayUnit:w.type==='Curtains'?'$/m':'$/m²',
@@ -1511,6 +1526,7 @@ job.windows.forEach(w=>{
 });
 
 const totalSupplyCost=Object.values(totals).reduce((sum,t)=>sum+t.supplyCost,0);
+const totalSupplyCostIncGst=totalSupplyCost*(1+GST_RATE);
 const totalMarkup=Object.values(totals).reduce((sum,t)=>sum+t.markup,0);
 const subtotalBeforeExtras=totalSupplyCost+totalMarkup;
 const subtotalWithExtras=subtotalBeforeExtras+installTotal+logisticsTotal;
@@ -1525,7 +1541,7 @@ const customerPrice=(totalSupplyCost+installTotal+logisticsTotal+freight) * (1+G
 
 const freightPerProduct=job.windows.length>0?(freight/job.windows.length):0;
 
-return{totals,totalSupplyCost,totalMarkup,installTotal,logisticsTotal,subtotalBeforeExtras,subtotalWithExtras,freight,freightPerProduct,freightShares,subtotalWithFreight,gst,total,customerPrice};
+return{totals,totalSupplyCost,totalSupplyCostIncGst,totalMarkup,installTotal,logisticsTotal,subtotalBeforeExtras,subtotalWithExtras,freight,freightPerProduct,freightShares,subtotalWithFreight,gst,total,customerPrice};
 }
 
 function updateLiveSummary(){
@@ -1537,7 +1553,8 @@ return;
 document.getElementById('liveSummary').classList.remove('hidden');
 let html='<div class="summary-card"><h3 style="margin:0 0 15px 0">💰 Live Quote Summary</h3>';
 html+='<div class="summary-grid">';
-html+=`<div class="summary-box"><div class="summary-label">Supply Cost</div><div class="summary-value">$${calc.totalSupplyCost.toFixed(2)}</div></div>`;
+html+=`<div class="summary-box"><div class="summary-label">Supply Cost (EX GST)</div><div class="summary-value">$${calc.totalSupplyCost.toFixed(2)}</div></div>`;
+html+=`<div class="summary-box"><div class="summary-label">Supply Cost (INC GST)</div><div class="summary-value">$${calc.totalSupplyCostIncGst.toFixed(2)}</div></div>`;
 html+=`<div class="summary-box"><div class="summary-label">Customer (no markup)</div><div class="summary-value">$${calc.customerPrice.toFixed(2)}</div></div>`;
 html+=`<div class="summary-box" style="background:rgba(255,255,255,0.3)"><div class="summary-label">Quote Price</div><div class="summary-value">$${calc.total.toFixed(2)}</div></div>`;
 html+='</div>';
@@ -1569,6 +1586,7 @@ const calc=calculateTotals(currentJob);
 // Render final summary
 let summaryHtml='<div class="summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px">';
 summaryHtml+=`<div style="background:linear-gradient(135deg,#E0F2FE 0%,#BAE6FD 100%);padding:20px;border-radius:10px;border:2px solid #0284C7"><div style="font-size:13px;color:#0369A1;font-weight:600;margin-bottom:8px">Supply Cost (EX GST)</div><div style="font-size:24px;font-weight:700;color:#0369A1">$${calc.totalSupplyCost.toFixed(2)}</div></div>`;
+summaryHtml+=`<div style="background:linear-gradient(135deg,#DBEAFE 0%,#93C5FD 100%);padding:20px;border-radius:10px;border:2px solid #2563EB"><div style="font-size:13px;color:#1D4ED8;font-weight:600;margin-bottom:8px">Supply Cost (INC GST)</div><div style="font-size:24px;font-weight:700;color:#1D4ED8">$${calc.totalSupplyCostIncGst.toFixed(2)}</div></div>`;
 summaryHtml+=`<div style="background:linear-gradient(135deg,#FEF3C7 0%,#FDE68A 100%);padding:20px;border-radius:10px;border:2px solid #F59E0B"><div style="font-size:13px;color:#92400E;font-weight:600;margin-bottom:8px">Markup</div><div style="font-size:24px;font-weight:700;color:#92400E">$${calc.totalMarkup.toFixed(2)}</div></div>`;
 summaryHtml+=`<div style="background:linear-gradient(135deg,#DBEAFE 0%,#BFDBFE 100%);padding:20px;border-radius:10px;border:2px solid #3B82F6"><div style="font-size:13px;color:#1E40AF;font-weight:600;margin-bottom:8px">Install (EX GST)</div><div style="font-size:24px;font-weight:700;color:#1E40AF">$${calc.installTotal.toFixed(2)}</div></div>`;
 summaryHtml+=`<div style="background:linear-gradient(135deg,#FCE7F3 0%,#FBCFE8 100%);padding:20px;border-radius:10px;border:2px solid #EC4899"><div style="font-size:13px;color:#9F1239;font-weight:600;margin-bottom:8px">Logistics (EX GST)</div><div style="font-size:24px;font-weight:700;color:#9F1239">$${calc.logisticsTotal.toFixed(2)}</div></div>`;
@@ -1585,7 +1603,7 @@ document.getElementById('finalSummary').innerHTML=summaryHtml;
 
 // Render pricing adjustments table
 let html='<div class="table-container"><table class="price-table" style="width:100%;border-collapse:collapse">';
-html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Options</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Base Price</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
+html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Options</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Base Price</th><th style="padding:12px;text-align:left;color:white">Supply (INC GST)</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
 currentJob.windows.forEach((w,idx)=>{
 normalizeWindowOptionState(w);
 const pricing=getWindowPricingDetails(w,currentJob);
@@ -1603,7 +1621,7 @@ const manualExtraHtml=`<div style="display:flex;align-items:center;gap:8px;flex-
 const optionSummary=pricing.optionTotal?`<div class="option-summary">Options total: $${pricing.optionTotal.toFixed(2)}</div>`:'';
 const optionSections=[motorHtml,fixedHtml,percentHtml,manualNotes,manualExtraHtml,optionSummary].filter(Boolean);
 const optionsHtml=optionSections.length?`<div class="option-stack">${optionSections.join('')}</div>`:`<span style="color:#999;font-size:12px">No extra options</span>`;
-html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:180px">${fabricSelect}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:150px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:120px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px;min-width:110px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px;min-width:110px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
+html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:180px">${fabricSelect}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:150px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:150px"><div style="font-weight:700;color:#1D4ED8">$${pricing.supplyCostIncGst.toFixed(2)}</div><div class="option-note">per product inc GST</div></td><td style="padding:12px;min-width:120px"><input type="text" inputmode="decimal" id="jobmult-${idx}" value="${currentMult}" onblur="handleJobMultiplierBlur(${idx},this)" style="width:80px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">x</span></td><td style="padding:12px;min-width:110px"><input type="number" id="jobinstall-${idx}" value="${(w.installOverride!==undefined&&w.installOverride!==null&&w.installOverride!=='')?w.installOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td><td style="padding:12px;min-width:110px"><input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"></td></tr>`;
 });
 html+='</tbody></table></div>';
 html+=`<div class="freight-note" style="margin-top:15px">🔧 <strong>Install:</strong> $${calc.installTotal.toFixed(2)} • 🚚 <strong>Logistics:</strong> $${calc.logisticsTotal.toFixed(2)} (auto per item, editable above) • <strong>Freight carrier:</strong> $${calc.freight.toFixed(2)} total (distributed $${calc.freightPerProduct.toFixed(2)}/product)</div>`;
