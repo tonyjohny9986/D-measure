@@ -538,6 +538,12 @@ function getWindowKey(w){
   return w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
 }
 
+function formatProductKeyLabel(key){
+  if(String(key).startsWith('Blinds-'))return `Blinds - ${String(key).slice(7)}`;
+  if(String(key).startsWith('Curtains-'))return `Curtains - ${String(key).slice(9)}`;
+  return String(key);
+}
+
 function parseNumberOr(value,fallback){
   const n=parseFloat(value);
   return Number.isNaN(n)?fallback:n;
@@ -1598,6 +1604,41 @@ summaryHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fit,min
 summaryHtml+=`<div style="background:linear-gradient(135deg,#FFF7ED 0%,#FFEDD5 100%);padding:25px;border-radius:12px;border:3px solid #F97316"><div style="font-size:14px;color:#9A3412;font-weight:600;margin-bottom:10px">💵 Customer Price (no markup)</div><div style="font-size:32px;font-weight:700;color:#EA580C">$${calc.customerPrice.toFixed(2)}</div><div style="font-size:12px;color:#C2410C;margin-top:8px">Inc GST • No markup</div></div>`;
 summaryHtml+=`<div style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%);padding:25px;border-radius:12px;border:3px solid #2D9A8E;box-shadow:0 4px 6px rgba(0,0,0,0.1)"><div style="font-size:14px;color:white;font-weight:600;margin-bottom:10px">💰 Quote Price (with markup)</div><div style="font-size:36px;font-weight:700;color:white">$${calc.total.toFixed(2)}</div><div style="font-size:12px;color:rgba(255,255,255,0.9);margin-top:8px">Inc GST • Presented to customer</div></div>`;
 summaryHtml+='</div>';
+
+const supplyBreakdownRows=Object.entries(calc.totals).map(([key,total])=>{
+  const ex=parseNumberOr(total&&total.supplyCost,0);
+  const inc=ex*(1+GST_RATE);
+  return `<tr>
+    <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;color:#1F2937;font-weight:600">${formatProductKeyLabel(key)}</td>
+    <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;color:#0369A1;text-align:right">$${ex.toFixed(2)}</td>
+    <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;color:#1D4ED8;text-align:right">$${inc.toFixed(2)}</td>
+  </tr>`;
+}).join('');
+
+if(supplyBreakdownRows){
+summaryHtml+=`<div style="margin-top:20px;background:white;border:2px solid #BFDBFE;border-radius:12px;padding:20px">
+  <div style="font-size:16px;color:#1D4ED8;font-weight:700;margin-bottom:12px">Supply Cost by Product</div>
+  <div class="table-container" style="margin:0">
+    <table style="width:100%;border-collapse:collapse;min-width:420px">
+      <thead>
+        <tr style="background:#EFF6FF">
+          <th style="padding:10px 12px;text-align:left;color:#1D4ED8;background:#EFF6FF">Product</th>
+          <th style="padding:10px 12px;text-align:right;color:#1D4ED8;background:#EFF6FF">EX GST</th>
+          <th style="padding:10px 12px;text-align:right;color:#1D4ED8;background:#EFF6FF">INC GST</th>
+        </tr>
+      </thead>
+      <tbody>${supplyBreakdownRows}</tbody>
+      <tfoot>
+        <tr style="background:#F8FAFC">
+          <td style="padding:10px 12px;color:#0F172A;font-weight:700">Total Supply</td>
+          <td style="padding:10px 12px;color:#0369A1;font-weight:700;text-align:right">$${calc.totalSupplyCost.toFixed(2)}</td>
+          <td style="padding:10px 12px;color:#1D4ED8;font-weight:700;text-align:right">$${calc.totalSupplyCostIncGst.toFixed(2)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>`;
+}
 
 document.getElementById('finalSummary').innerHTML=summaryHtml;
 
