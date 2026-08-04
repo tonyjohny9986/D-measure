@@ -2,6 +2,7 @@ const { CORS_HEADERS, getJson, setJson, deleteJson } = require("./_store");
 const { requireAuth, unauthorized } = require("./_auth");
 
 const JOB_INDEX_KEY = "jobs_index";
+const LEGACY_JOBS_KEY = "jobs";
 
 function getJobStoreKey(id) {
   return `job_${String(id)}`;
@@ -38,6 +39,9 @@ exports.handler = async (event) => {
 
     await setJson(JOB_INDEX_KEY, nextIndex);
     await deleteJson(storeKey);
+    const legacyJobs = await getJson(LEGACY_JOBS_KEY, []);
+    const nextLegacyJobs = (Array.isArray(legacyJobs) ? legacyJobs : []).filter((job) => job && job.id !== id);
+    await setJson(LEGACY_JOBS_KEY, nextLegacyJobs);
 
     return {
       statusCode: 200,
