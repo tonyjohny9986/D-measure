@@ -93,8 +93,14 @@ async function getStoreClient() {
           if (config) return mod.getStore(config);
           return mod.getStore("measurement-pro");
         } catch (error) {
+          if (IS_SERVERLESS_RUNTIME && !IS_LOCAL_DEV) {
+            throw new Error(`Cloud data store unavailable: ${error.message}`);
+          }
           console.warn("Falling back to local store because Netlify Blobs is unavailable:", error.message);
         }
+      }
+      if (IS_SERVERLESS_RUNTIME && !IS_LOCAL_DEV) {
+        throw new Error("Cloud data store unavailable: Netlify Blobs is not configured for this production runtime.");
       }
       return getLocalStoreClient();
     })();

@@ -2556,7 +2556,10 @@ renderWindows();
 async function fetchCloudJobs(){
 try{
 const response=await authFetch('/.netlify/functions/jobs-list');
-if(!response.ok)return false;
+if(!response.ok){
+  const data=await response.json().catch(()=>({}));
+  throw new Error(data.error||'Failed to load shared jobs');
+}
 const data=await response.json();
 if(!Array.isArray(data.jobs))return false;
 const localJobs=Array.isArray(jobs)?jobs:[];
@@ -2578,6 +2581,7 @@ if(localOnlyOrNewer.length){
 }
 return true;
 }catch(e){
+ console.warn('Cloud sync failed:',e);
 return false;
 }
 }
@@ -2616,23 +2620,28 @@ updateJobCount();
 
 async function upsertJobCloud(job){
 if(!job||(!job.id&&job.id!==0))return;
-try{
-await authFetch('/.netlify/functions/jobs-upsert',{
+const response=await authFetch('/.netlify/functions/jobs-upsert',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({job})
 });
-}catch(e){}
+const data=await response.json().catch(()=>({}));
+if(!response.ok||data.error){
+  throw new Error(data.error||'Failed to save job to shared cloud storage');
+}
+return data;
 }
 
 async function deleteJobCloud(id){
 if(id===undefined||id===null)return;
 try{
-await authFetch('/.netlify/functions/jobs-delete',{
+const response=await authFetch('/.netlify/functions/jobs-delete',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({id})
 });
+const data=await response.json().catch(()=>({}));
+if(!response.ok||data.error)throw new Error(data.error||'Failed to delete shared job');
 }catch(e){}
 }
 
@@ -3553,8 +3562,12 @@ currentEditingIndex=null;
 jobs.push(currentJob);
 }
 saveJobs();
-await upsertJobCloud(jobToPersist);
-alert('✓ Job saved to cloud successfully!');
+try{
+  await upsertJobCloud(jobToPersist);
+  alert('✓ Job saved to shared cloud successfully!');
+}catch(error){
+  alert('Job saved on this device only.\n\nShared sync failed: '+error.message+'\n\nPlease keep this device open and try again after refresh.');
+}
 currentJob=null;
 showingFinalDetails=false;
 clearWhatsAppImport();
