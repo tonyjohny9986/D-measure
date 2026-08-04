@@ -3607,8 +3607,7 @@ container.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div>
 return;
 }
 container.innerHTML='';
-jobs.slice().reverse().forEach((job,reverseIndex)=>{
-const index=jobs.length-1-reverseIndex;
+jobs.forEach((job,index)=>{
 currentJob=job;
 const calc=calculateTotals(job);
 currentJob=null;
