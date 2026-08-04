@@ -1,6 +1,8 @@
 const fs = require("fs/promises");
 const fsSync = require("fs");
 const path = require("path");
+const fetch = require("node-fetch");
+const { getConfigValue } = require("./_config");
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +42,21 @@ const LOCAL_STORE_DIR = IS_SERVERLESS_RUNTIME && !IS_LOCAL_DEV
   ? path.join("/tmp", "measurement-pro-local-store")
   : path.join(PROJECT_ROOT, "data", ".local-store");
 let storePromise = null;
+
+function hasSupabaseEnv() {
+  return !!(
+    getConfigValue("SUPABASE_URL") &&
+    getConfigValue("SUPABASE_SERVICE_ROLE_KEY")
+  );
+}
+
+function getSupabaseConfig() {
+  const url = getConfigValue("SUPABASE_URL").replace(/\/+$/, "");
+  const serviceRoleKey = getConfigValue("SUPABASE_SERVICE_ROLE_KEY");
+  const table = getConfigValue("SUPABASE_STORE_TABLE", "app_kv") || "app_kv";
+  if (!url || !serviceRoleKey) return null;
+  return { url, serviceRoleKey, table };
+}
 
 function hasNetlifyBlobsEnv() {
   if (IS_LOCAL_DEV) return false;
@@ -83,9 +100,85 @@ async function getLocalStoreClient() {
   };
 }
 
+function buildSupabaseHeaders(config, extra = {}) {
+  return {
+    apikey: config.serviceRoleKey,
+    Authorization: `Bearer ${config.serviceRoleKey}`,
+    "Content-Type": "application/json",
+    ...extra,
+  };
+}
+
+function buildSupabaseUrl(config, query = "") {
+  return `${config.url}/rest/v1/${encodeURIComponent(config.table)}${query}`;
+}
+
+async function readSupabaseError(response) {
+  const text = await response.text().catch(() => "");
+  if (!text) {
+    throw new Error(`Supabase request failed with status ${response.status}`);
+  }
+  try {
+    const parsed = JSON.parse(text);
+    throw new Error(parsed.message || parsed.error_description || parsed.error || text);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(text);
+    }
+    throw error;
+  }
+}
+
+async function getSupabaseStoreClient() {
+  const config = getSupabaseConfig();
+  if (!config) {
+    throw new Error("Supabase storage is not configured.");
+  }
+
+  return {
+    async get(key, options = {}) {
+      const query = `?select=value&key=eq.${encodeURIComponent(String(key))}&limit=1`;
+      const response = await fetch(buildSupabaseUrl(config, query), {
+        method: "GET",
+        headers: buildSupabaseHeaders(config),
+      });
+      if (!response.ok) await readSupabaseError(response);
+      const rows = await response.json();
+      const value = Array.isArray(rows) && rows.length ? rows[0].value : null;
+      if (value === null || value === undefined) return null;
+      if (options.type === "json") return value;
+      return typeof value === "string" ? value : JSON.stringify(value);
+    },
+    async setJSON(key, value) {
+      const payload = [{ key: String(key), value }];
+      const response = await fetch(buildSupabaseUrl(config), {
+        method: "POST",
+        headers: buildSupabaseHeaders(config, {
+          Prefer: "return=minimal,resolution=merge-duplicates",
+        }),
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) await readSupabaseError(response);
+    },
+    async delete(key) {
+      const response = await fetch(
+        buildSupabaseUrl(config, `?key=eq.${encodeURIComponent(String(key))}`),
+        {
+          method: "DELETE",
+          headers: buildSupabaseHeaders(config),
+        }
+      );
+      if (!response.ok) await readSupabaseError(response);
+    },
+  };
+}
+
 async function getStoreClient() {
   if (!storePromise) {
     storePromise = (async () => {
+      if (hasSupabaseEnv()) {
+        return getSupabaseStoreClient();
+      }
       if (hasNetlifyBlobsEnv()) {
         try {
           const mod = await import("@netlify/blobs");
