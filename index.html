@@ -117,6 +117,18 @@ tr:hover{background:#F9FAFB}
 <button class="btn btn-teal" onclick="saveMidRail()" style="flex:1">✓ Save</button>
 </div>
 </div>
+
+<div id="savedJobWorkOrderModal" class="modal">
+<div class="modal-content" style="max-width:760px">
+<h2 class="modal-title" style="color:#0F766E">Installer Work Order</h2>
+<div id="savedJobWorkOrderModalBody"></div>
+<div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+<button class="btn btn-gray" onclick="closeSavedJobWorkOrderModal()" style="flex:1">Close</button>
+<button class="btn" style="flex:1;background:#0F766E;color:white" onclick="previewSavedJobWorkOrder()">Preview</button>
+<button class="btn" style="flex:1;background:#1D4ED8;color:white" onclick="downloadSavedJobWorkOrder()">Download</button>
+</div>
+</div>
+</div>
 </div>
 
 <div class="container">
@@ -134,6 +146,7 @@ tr:hover{background:#F9FAFB}
 <button id="btnLogout" class="btn btn-nav" onclick="logoutEmployee()">🚪 Logout</button>
 <button id="btnSettings" class="btn btn-nav" onclick="toggleSettings()">⚙️</button>
 <button id="btnMeasure" class="btn btn-nav active" onclick="showTab('measure')">📏 Measure</button>
+<button id="btnOrders" class="btn btn-nav" onclick="showTab('orders')">🧾 Work Orders</button>
 <button id="btnJobs" class="btn btn-nav" onclick="showTab('saved')">💾 Jobs (<span id="jobCount">0</span>)</button>
 </div>
 </div>
@@ -393,7 +406,10 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 <div class="empty-icon">📏</div>
 <h2 class="empty-title">Ready to Start Measuring?</h2>
 <p class="empty-text">Create a new job to begin taking window measurements</p>
+<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
 <button class="btn btn-teal" onclick="startNewJob()">➕ Start New Job</button>
+<button class="btn" onclick="startJobFromOrderSheet()" style="background:#DBEAFE;color:#1D4ED8">📄 Start From Order Sheet</button>
+</div>
 </div>
 </div>
 
@@ -404,7 +420,12 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 <input type="text" id="address" placeholder="Address">
 <input type="tel" id="phone" placeholder="Phone">
 <input type="email" id="email" placeholder="Email">
+<input type="text" id="customerNumber" placeholder="Customer Number">
+<input type="text" id="installerName" placeholder="Installer Name">
+<input type="text" id="materialCollection" placeholder="Material Collection">
+<input type="date" id="jobDate" placeholder="Order Date">
 </div>
+<textarea id="specialInstructions" rows="4" placeholder="Special instructions for the installer" style="width:100%;margin-top:15px;padding:12px;border:2px solid #E5E7EB;border-radius:8px;font-size:16px;font-family:inherit;resize:vertical"></textarea>
 </div>
 
 <div class="card hidden" id="windowsCard">
@@ -491,6 +512,7 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 </div>
 
 <div id="liveSummary" class="hidden"></div>
+<div id="installerSelectionPanel" class="hidden"></div>
 
 <div id="finalDetails" class="hidden">
 <div class="card" style="margin-bottom:20px">
@@ -507,6 +529,8 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 
 <div class="btn-row hidden" id="jobButtons">
 <button onclick="cancelJob()" class="btn btn-gray">← Cancel</button>
+<button onclick="previewCurrentWorkOrder()" class="btn" style="background:#0F766E;color:white">🧾 Preview Work Order</button>
+<button onclick="downloadCurrentWorkOrder()" class="btn" style="background:#1D4ED8;color:white">⬇️ Download Work Order</button>
 <button onclick="showFinalDetails()" class="btn btn-teal" id="btnContinue" style="flex:2">Continue to Final Details →</button>
 <button onclick="saveJob()" class="btn btn-green hidden" id="btnSave" style="flex:2">💾 Save Job</button>
 </div>
@@ -515,6 +539,44 @@ Freight costs <strong>EX GST</strong>. Distributed invisibly across products whe
 <div id="viewSaved" class="card hidden">
 <h2 class="card-title">💾 Saved Jobs</h2>
 <div id="savedJobsList"></div>
+</div>
+
+<div id="viewOrders" class="hidden">
+<div class="card">
+<h2 class="card-title">🧾 Order Sheet To Work Order</h2>
+<p style="color:#475569;font-size:14px;margin-bottom:18px">Use this only to convert an uploaded Excel order sheet into an installer work order. It does not affect quotes or saved jobs.</p>
+<div class="import-panel" style="margin-bottom:0">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+<div>
+<div style="font-size:18px;font-weight:700;color:#1D4ED8">📄 Upload Order Sheet</div>
+<p style="color:#475569;font-size:14px;margin-top:6px">Main fields captured: location, window size, product, fit type, layout code, and comments from Excel sheets.</p>
+</div>
+<div class="import-tags">
+<span class="import-tag">Separate from quotes</span>
+<span class="import-tag">Excel .xlsx</span>
+<span class="import-tag">Installer work order only</span>
+</div>
+</div>
+<div class="import-grid" style="grid-template-columns:minmax(280px,1.4fr) minmax(240px,1fr)">
+<div>
+<input type="file" id="orderSheetFile" accept=".xlsx,.xls,.csv" style="padding:12px;background:white;border:2px dashed #93C5FD;border-radius:10px">
+<div class="import-help" style="margin-top:10px">Best results come from Excel sheets with customer details and a product table that includes room/location, size, product, fit type, and layout code. PDF and JPEG measurement reading is not supported in this uploader yet.</div>
+</div>
+<div>
+<div class="btn-row" style="margin-top:0;flex-wrap:wrap">
+<button onclick="importStandaloneOrderSheet()" class="btn btn-teal" style="flex:1;min-width:170px">Convert To Work Order</button>
+<button onclick="previewStandaloneWorkOrder()" class="btn" style="flex:1;min-width:170px;background:#0F766E;color:white">Preview Work Order</button>
+</div>
+<button onclick="clearStandaloneOrderSheet()" class="btn" style="margin-top:10px;background:#DBEAFE;color:#1D4ED8;width:100%">Clear File</button>
+</div>
+</div>
+<div id="orderSheetStatus" class="import-summary" style="margin-top:12px">Choose an order sheet to convert it directly into a work order.</div>
+</div>
+</div>
+<div class="card">
+<h3 class="card-title">Imported Work Order</h3>
+<div id="standaloneOrderSheetResult"><div class="empty-state" style="padding:30px 20px"><p style="color:#6B7280;font-size:15px">No order sheet converted yet.</p></div></div>
+</div>
 </div>
 </div>
 
@@ -531,6 +593,56 @@ let currentUser=null;
 let appInitialized=false;
 let lastWhatsAppImportPreview=null;
 let whatsAppImportCollapsed=false;
+let lastImportedOrderSheetName='';
+let currentStandaloneWorkOrder=null;
+let savedJobWorkOrderIndex=null;
+
+function inferStandaloneProductGroup(productLabel){
+  const text=String(productLabel||'').toLowerCase();
+  if(text.includes('shutter'))return 'Shutters';
+  if(text.includes('verishade'))return 'Verishade';
+  if(text.includes('curtain'))return 'Curtains';
+  if(text.includes('blind'))return 'Blinds';
+  return 'Other';
+}
+
+function isRollerProductLabel(productLabel){
+  const text=String(productLabel||'').toLowerCase();
+  return text.includes('roller');
+}
+
+function normalizeStandaloneWorkOrderState(order){
+  if(!order||!Array.isArray(order.items))return order;
+  order.items=order.items.map((item,index)=>Object.assign({
+    room:'',
+    product:'',
+    size:'',
+    fitType:'',
+    rollType:isRollerProductLabel(item&&item.product)?'Back Roll':'',
+    controlSide:isRollerProductLabel(item&&item.product)?'Left':'',
+    layoutCode:'',
+    comments:'',
+    selected:true,
+    productGroup:inferStandaloneProductGroup(item&&item.product)
+  },item||{},{
+    selected:item&&item.selected!==false,
+    productGroup:inferStandaloneProductGroup(item&&item.product)
+  })).map(item=>{
+    if(isRollerProductLabel(item.product)){
+      if(!item.rollType)item.rollType='Back Roll';
+      if(!item.controlSide)item.controlSide='Left';
+    }
+    return item;
+  });
+  return order;
+}
+
+function getSelectedStandaloneWorkOrder(order){
+  const safeOrder=normalizeStandaloneWorkOrderState(order?JSON.parse(JSON.stringify(order)):null);
+  if(!safeOrder)return null;
+  safeOrder.items=(safeOrder.items||[]).filter(item=>item.selected!==false);
+  return safeOrder;
+}
 
 function getStorageItem(key){
   try{
@@ -555,6 +667,35 @@ function removeStorageItem(key){
   }catch(e){}
 }
 
+function getJobSyncTimestamp(job){
+  if(!job||typeof job!=='object')return 0;
+  const candidates=[job.savedAt,job.updatedAt,job.date];
+  for(const value of candidates){
+    const ts=Date.parse(value||'');
+    if(Number.isFinite(ts)&&ts>0)return ts;
+  }
+  return 0;
+}
+
+function mergeJobsByLatest(localJobs, cloudJobs){
+  const mergedMap=new Map();
+  [...(Array.isArray(localJobs)?localJobs:[]), ...(Array.isArray(cloudJobs)?cloudJobs:[])].forEach(job=>{
+    if(!job||job.id===undefined||job.id===null)return;
+    const key=String(job.id);
+    const existing=mergedMap.get(key);
+    if(!existing){
+      mergedMap.set(key,job);
+      return;
+    }
+    const existingTs=getJobSyncTimestamp(existing);
+    const incomingTs=getJobSyncTimestamp(job);
+    if(incomingTs>=existingTs){
+      mergedMap.set(key,job);
+    }
+  });
+  return Array.from(mergedMap.values()).sort((a,b)=>getJobSyncTimestamp(b)-getJobSyncTimestamp(a));
+}
+
 let authToken=getStorageItem('decovibes_auth_token')||'';
 
 let pricingCatalog=null;
@@ -577,6 +718,17 @@ const DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST=285;
 const DEFAULT_SHUTTER_SUPPLY_RATE_INC_GST=165;
 const defaultRates={'Blinds-Roller':35,'Blinds-Trublockout':500,'Blinds-Vertical':85,'Blinds-Zebra':110,'Blinds-Venetian':95,'Shutters':DEFAULT_SHUTTER_CUSTOMER_RATE_INC_GST,'Curtains-Sheer':105,'Curtains-Blockout':145,'Verishade':380};
 const defaultMultipliers={'Blinds-Roller':1.8,'Blinds-Trublockout':1.8,'Blinds-Vertical':1.8,'Blinds-Zebra':1.8,'Blinds-Venetian':1.8,'Shutters':1,'Curtains-Sheer':1.8,'Curtains-Blockout':1.8,'Verishade':1.8};
+const CURTAIN_MOTORISED_CLEAR_WAVE_PRICES={
+  2:585,3:665,4:755,5:830,6:905,7:985,8:1060,9:1140,10:1215,11:1285,12:1360
+};
+const CURTAIN_MOTORISED_REMOTE_OPTIONS=[
+  {value:'remote-1',label:'Remote 1 Channel',amount:65},
+  {value:'remote-2',label:'Remote 2 Channel',amount:75},
+  {value:'remote-5',label:'Remote 5 Channel',amount:90},
+  {value:'remote-timer',label:'Remote with Timer',amount:250},
+  {value:'remote-16',label:'Remote 16 Channel',amount:270}
+];
+const CURTAIN_MOTORISED_CHARGER_PRICE=60;
 
 const defaultInstallCharges={
   'Blinds-Roller':30,
@@ -598,6 +750,8 @@ const defaultFreightConfig={
 };
 let xeroBrandingThemes=[];
 let xeroDefaultBrandingThemeId='';
+const XERO_LOCAL_TOKEN_KEY='decovibes_xero_local_token';
+let xeroLocalTokenMemory='';
 let defaultQuoteBrandingThemeId='';
 let defaultQuoteExpiryDays=7;
 let defaultQuoteTerms='';
@@ -606,9 +760,17 @@ function getWindowKey(w){
   return w.type==='Blinds'?`Blinds-${w.subType}`:w.type==='Curtains'?`Curtains-${w.subType}`:w.type;
 }
 
+function normalizeVerishadeSubtypeValue(value){
+  return String(value||'').trim().toLowerCase()==='soft wave'?'Soft Wave':'Standard';
+}
+
 function formatProductKeyLabel(key){
   if(String(key).startsWith('Blinds-'))return `Blinds - ${String(key).slice(7)}`;
   if(String(key).startsWith('Curtains-'))return `Curtains - ${String(key).slice(9)}`;
+  if(String(key).startsWith('Verishade-')){
+    const subType=String(key).slice(10);
+    return subType==='Soft Wave'?'Verishade - Soft Wave':'Verishade';
+  }
   return String(key);
 }
 
@@ -644,7 +806,8 @@ function decodeImportProductValue(value){
   let subType=parts[1]||'';
   if(type==='Blinds'&&!subType)subType='Roller';
   if(type==='Curtains'&&!subType)subType='Sheer';
-  if(type==='Verishade'||type==='Shutters')subType='-';
+  if(type==='Verishade')subType=normalizeVerishadeSubtypeValue(subType);
+  if(type==='Shutters')subType='-';
   return {type,subType};
 }
 
@@ -656,7 +819,8 @@ function getSelectedImportFit(){
 function detectImportProduct(text, fallback){
   const normalized=' '+String(text||'').toLowerCase()+' ';
   const fallbackProduct=fallback||{type:'Blinds',subType:'Roller'};
-  if(/\bveri\s*shade\b|\bverishade\b/.test(normalized))return {type:'Verishade',subType:'-'};
+  if(/\bsoft\s*wave\b/.test(normalized))return {type:'Verishade',subType:'Soft Wave'};
+  if(/\bveri\s*shade\b|\bverishade\b/.test(normalized))return {type:'Verishade',subType:'Standard'};
   if(/\bshutters?\b/.test(normalized))return {type:'Shutters',subType:'-'};
   if(/\bvertical\b/.test(normalized))return {type:'Blinds',subType:'Vertical'};
   if(/\bzebra\b/.test(normalized))return {type:'Blinds',subType:'Zebra'};
@@ -799,6 +963,7 @@ function applyFitModeToWindow(windowData, fitMode){
   windowData.recessFit=false;
   windowData.faceFit=false;
   windowData.ceilingFit=false;
+  if(windowData.type==='Curtains'&&!fitMode)windowData.ceilingFit=true;
   if(fitMode==='recess'&&windowData.type==='Blinds')windowData.recessFit=true;
   if(fitMode==='face'&&(windowData.type==='Blinds'||windowData.type==='Curtains'||windowData.type==='Verishade'))windowData.faceFit=true;
   if(fitMode==='ceiling'&&(windowData.type==='Curtains'||windowData.type==='Verishade'))windowData.ceilingFit=true;
@@ -927,12 +1092,14 @@ function previewWhatsAppImport(){
 }
 
 function createWindowRecord(type='Blinds',subType='Roller'){
-  return {
+  if(type==='Verishade')subType=normalizeVerishadeSubtypeValue(subType);
+  const windowData={
     id:windowIdCounter++,
     room:'',
     windowNumber:'',
     type,
     subType,
+    productName:'',
     fabricType:getFabricTypeDefault(type,subType),
     width:'',
     drop:'',
@@ -948,15 +1115,31 @@ function createWindowRecord(type='Blinds',subType='Roller'){
     selectedFixedExtras:[],
     selectedPercentExtras:[],
     manualProductExtra:'',
+    motorisationBrand:'',
+    motorisationMotorChoice:'',
+    motorisationRemoteChoice:'',
+    motorisationChargerChoice:'',
+    motorisationHubChoice:'',
     motorisationChoice:'',
-    motorisationCost:''
+    motorisationCost:'',
+    rollerRollType:type==='Blinds'&&subType==='Roller'?'Back Roll':'',
+    rollerControlSide:type==='Blinds'&&subType==='Roller'?'Left':'',
+    sendToInstaller:true,
+    curtainMotorisedTrackEnabled:false,
+    curtainAddCharger:false,
+    curtainRemoteType:''
   };
+  if(type==='Curtains'){
+    windowData.ceilingFit=true;
+  }
+  return windowData;
 }
 
 function materializeImportedWindow(draft, fallbackWindowNumber){
   const windowData=createWindowRecord(draft.type,draft.subType);
   windowData.room=draft.room||'';
   windowData.windowNumber=draft.windowNumber||fallbackWindowNumber||'';
+  windowData.productName=draft.productName||draft.product||'';
   windowData.fabricType=getFabricTypeDefault(windowData.type,windowData.subType);
   windowData.width=draft.width!=null?String(draft.width):'';
   windowData.drop=draft.drop!=null?String(draft.drop):'';
@@ -1034,6 +1217,9 @@ function normalizeJobPricingState(job){
 }
 
 function getCatalogProductKey(windowOrKey){
+  if(windowOrKey&&typeof windowOrKey==='object'&&windowOrKey.type==='Verishade'){
+    return normalizeVerishadeSubtypeValue(windowOrKey.subType)==='Soft Wave'?'softWave':'verishade';
+  }
   const key=typeof windowOrKey==='string'?windowOrKey:getWindowKey(windowOrKey);
   return MATRIX_PRODUCT_MAP[key]||null;
 }
@@ -1140,8 +1326,10 @@ function getWindowPricingDetails(w,job=currentJob){
   const multiplier=parseNumberOr(w.multiplierOverride,parseNumberOr(jobMultipliers?jobMultipliers[key]:undefined,1));
   const optionConfig=getWindowOptionConfig(w);
   const fixedExtraTotal=getSelectedNamedItems(w.selectedFixedExtras,optionConfig.fixed).reduce((sum,item)=>sum+parseNumberOr(item.amount,0),0);
+  const matrixFixedExtraTotal=getSelectedNamedItems(w.selectedFixedExtras,optionConfig.matrixFixed).reduce((sum,item)=>sum+parseNumberOr(getMatrixPrice(item.matrix,width,drop),0),0);
   const percentExtraTotal=getSelectedNamedItems(w.selectedPercentExtras,optionConfig.percent).reduce((sum,item)=>sum+parseNumberOr(item.percent,0),0);
   const motorisationCost=parseNumberOr(w.motorisationCost,0);
+  const curtainMotorisedExtraCost=getCurtainMotorisedExtrasCost(w);
   const manualProductExtra=parseNumberOr(w.manualProductExtra,0);
   const product=getCatalogProduct(w);
   const categoryKey=getMatrixCategoryKey(w);
@@ -1151,7 +1339,7 @@ function getWindowPricingDetails(w,job=currentJob){
   if(autoMatrixPrice!==null||hasManualMatrixOverride){
     const baseSupply=hasManualMatrixOverride?parseNumberOr(w.rateOverride,autoMatrixPrice||0):autoMatrixPrice;
     const safeBase=typeof baseSupply==='number'&&!Number.isNaN(baseSupply)?baseSupply:0;
-    const supplyCost=(safeBase*(1+(percentExtraTotal/100)))+fixedExtraTotal+motorisationCost+manualProductExtra;
+    const supplyCost=(safeBase*(1+(percentExtraTotal/100)))+fixedExtraTotal+matrixFixedExtraTotal+motorisationCost+curtainMotorisedExtraCost+manualProductExtra;
     return {
       key,
       multiplier,
@@ -1170,7 +1358,7 @@ function getWindowPricingDetails(w,job=currentJob){
   const unitQty=w.type==='Curtains'?(width/1000):area;
   const rate=parseNumberOr(w.rateOverride,parseNumberOr(jobRates?jobRates[key]:undefined,parseNumberOr(defaultRates[key],0)));
   const baseSupply=unitQty*rate;
-  const supplyCost=(baseSupply*(1+(percentExtraTotal/100)))+fixedExtraTotal+motorisationCost+manualProductExtra;
+  const supplyCost=(baseSupply*(1+(percentExtraTotal/100)))+fixedExtraTotal+matrixFixedExtraTotal+motorisationCost+curtainMotorisedExtraCost+manualProductExtra;
   return {
     key,
     multiplier,
@@ -1209,19 +1397,66 @@ function getWindowOptionConfig(w){
   const product=getCatalogProduct(w);
   return {
     fixed: product&&product.extras?ensureArray(product.extras.fixed):[],
+    matrixFixed: product&&product.extras?ensureArray(product.extras.matrixFixed):[],
     percent: product&&product.extras?ensureArray(product.extras.percent):[],
     manual: product&&product.extras?ensureArray(product.extras.manual):[],
     motorisation: product?ensureArray(product.motorisation):[]
   };
 }
 
+function classifyMotorisationOption(option){
+  const name=String(option&&option.name||'').toLowerCase();
+  if(name.includes('remote'))return 'remote';
+  if(name.includes('charger'))return 'charger';
+  if(name.includes('hub'))return 'hub';
+  return 'motor';
+}
+
+function getMotorisationBrandConfig(w){
+  const config=getWindowOptionConfig(w);
+  const brand=String(w&&w.motorisationBrand||'').trim();
+  if(!brand)return null;
+  return config.motorisation.find(group=>group.group===brand)||null;
+}
+
+function getMotorisationSelectionCost(w){
+  const brandConfig=getMotorisationBrandConfig(w);
+  if(!brandConfig)return 0;
+  const selectedKeys=[
+    w.motorisationMotorChoice,
+    w.motorisationRemoteChoice,
+    w.motorisationHubChoice,
+    w.motorisationChargerChoice
+  ].filter(Boolean);
+  return selectedKeys.reduce((sum,key)=>{
+    const found=brandConfig.options.find(option=>`${brandConfig.group}::${option.name}`===key);
+    return sum+parseNumberOr(found&&found.amount,0);
+  },0);
+}
+
 function normalizeWindowOptionState(w){
   if(!w)return;
+  if(w.type==='Verishade')w.subType=normalizeVerishadeSubtypeValue(w.subType);
+  if(w.productName===undefined||w.productName===null)w.productName='';
   w.selectedFixedExtras=ensureArray(w.selectedFixedExtras);
   w.selectedPercentExtras=ensureArray(w.selectedPercentExtras);
   if(w.manualProductExtra===undefined||w.manualProductExtra===null)w.manualProductExtra='';
+  if(w.motorisationBrand===undefined||w.motorisationBrand===null)w.motorisationBrand='';
+  if(w.motorisationMotorChoice===undefined||w.motorisationMotorChoice===null)w.motorisationMotorChoice='';
+  if(w.motorisationRemoteChoice===undefined||w.motorisationRemoteChoice===null)w.motorisationRemoteChoice='';
+  if(w.motorisationChargerChoice===undefined||w.motorisationChargerChoice===null)w.motorisationChargerChoice='';
+  if(w.motorisationHubChoice===undefined||w.motorisationHubChoice===null)w.motorisationHubChoice='';
   if(w.motorisationChoice===undefined||w.motorisationChoice===null)w.motorisationChoice='';
   if(w.motorisationCost===undefined||w.motorisationCost===null)w.motorisationCost='';
+  if(!w.motorisationCost&&(w.motorisationBrand||w.motorisationMotorChoice||w.motorisationRemoteChoice||w.motorisationChargerChoice||w.motorisationHubChoice)){
+    w.motorisationCost=getMotorisationSelectionCost(w);
+  }
+  if(w.rollerRollType===undefined||w.rollerRollType===null||w.rollerRollType==='')w.rollerRollType=getDefaultRollType(w);
+  if(w.rollerControlSide===undefined||w.rollerControlSide===null||w.rollerControlSide==='')w.rollerControlSide=getDefaultControlSide(w);
+  if(w.sendToInstaller===undefined||w.sendToInstaller===null)w.sendToInstaller=true;
+  if(w.curtainMotorisedTrackEnabled===undefined||w.curtainMotorisedTrackEnabled===null)w.curtainMotorisedTrackEnabled=false;
+  if(w.curtainAddCharger===undefined||w.curtainAddCharger===null)w.curtainAddCharger=false;
+  if(w.curtainRemoteType===undefined||w.curtainRemoteType===null)w.curtainRemoteType='';
 }
 
 function renderBrandingThemeOptions(){
@@ -1246,6 +1481,766 @@ const el=document.getElementById('quoteBrandingThemeStatus');
 if(!el)return;
 el.textContent=message;
 el.style.color=color||'#6B7280';
+}
+
+function syncJobCoreFieldsFromForm(){
+if(!currentJob)return;
+currentJob.clientName=document.getElementById('clientName').value.trim();
+currentJob.address=document.getElementById('address').value.trim();
+currentJob.phone=document.getElementById('phone').value.trim();
+currentJob.email=document.getElementById('email').value.trim();
+currentJob.customerNumber=document.getElementById('customerNumber').value.trim();
+currentJob.installerName=document.getElementById('installerName').value.trim();
+currentJob.materialCollection=document.getElementById('materialCollection').value.trim();
+currentJob.specialInstructions=document.getElementById('specialInstructions').value.trim();
+currentJob.date=document.getElementById('jobDate').value||currentJob.date||new Date().toISOString().split('T')[0];
+}
+
+function populateJobCoreFields(job){
+document.getElementById('clientName').value=job&&job.clientName?job.clientName:'';
+document.getElementById('address').value=job&&job.address?job.address:'';
+document.getElementById('phone').value=job&&job.phone?job.phone:'';
+document.getElementById('email').value=job&&job.email?job.email:'';
+document.getElementById('customerNumber').value=job&&job.customerNumber?job.customerNumber:'';
+document.getElementById('installerName').value=job&&job.installerName?job.installerName:'';
+document.getElementById('materialCollection').value=job&&job.materialCollection?job.materialCollection:'';
+document.getElementById('specialInstructions').value=job&&job.specialInstructions?job.specialInstructions:'';
+document.getElementById('jobDate').value=job&&job.date?job.date:new Date().toISOString().split('T')[0];
+}
+
+function clearOrderSheetFile(){
+const fileEl=document.getElementById('orderSheetFile');
+if(fileEl)fileEl.value='';
+lastImportedOrderSheetName='';
+const statusEl=document.getElementById('orderSheetStatus');
+if(statusEl)statusEl.innerHTML='Choose an order sheet to import customer details, products, sizes, and installer notes.';
+}
+
+function startJobFromOrderSheet(){
+showTab('orders');
+setTimeout(()=>{
+  const fileEl=document.getElementById('orderSheetFile');
+  if(fileEl){
+    fileEl.scrollIntoView({behavior:'smooth',block:'center'});
+    fileEl.focus();
+    try{ fileEl.click(); }catch(e){}
+  }
+},120);
+}
+
+function clearStandaloneOrderSheet(){
+const fileEl=document.getElementById('orderSheetFile');
+if(fileEl)fileEl.value='';
+lastImportedOrderSheetName='';
+currentStandaloneWorkOrder=null;
+const statusEl=document.getElementById('orderSheetStatus');
+if(statusEl)statusEl.innerHTML='Choose an order sheet to convert it directly into a work order.';
+const resultEl=document.getElementById('standaloneOrderSheetResult');
+if(resultEl)resultEl.innerHTML='<div class="empty-state" style="padding:30px 20px"><p style="color:#6B7280;font-size:15px">No order sheet converted yet.</p></div>';
+}
+
+function materializeImportedOrderWindow(draft,fallbackWindowNumber){
+  const windowData=createWindowRecord(draft.type||'Blinds',draft.subType||'Roller');
+  windowData.room=draft.room||'';
+  windowData.windowNumber=draft.windowNumber||fallbackWindowNumber||'';
+  windowData.width=draft.width!=null?String(draft.width):'';
+  windowData.drop=draft.drop!=null?String(draft.drop):'';
+  windowData.notes=draft.notes||'';
+  windowData.color=draft.color||'';
+  windowData.fabricType=getFabricTypeDefault(windowData.type,windowData.subType);
+  windowData.midRailPosition=draft.midRailPosition!=null&&draft.midRailPosition!==''?parseNumberOr(draft.midRailPosition,null):null;
+  applyFitModeToWindow(windowData,draft.fitMode||'');
+  return windowData;
+}
+
+function renderStandaloneOrderSheetResult(){
+const container=document.getElementById('standaloneOrderSheetResult');
+if(!container)return;
+normalizeStandaloneWorkOrderState(currentStandaloneWorkOrder);
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items)||!currentStandaloneWorkOrder.items.length){
+  container.innerHTML='<div class="empty-state" style="padding:30px 20px"><p style="color:#6B7280;font-size:15px">No order sheet converted yet.</p></div>';
+  return;
+}
+const order=currentStandaloneWorkOrder;
+const selectedCount=order.items.filter(item=>item.selected!==false).length;
+const productGroups=Array.from(new Set(order.items.map(item=>item.productGroup||inferStandaloneProductGroup(item.product))));
+const groupButtons=productGroups.map(group=>{
+  const total=order.items.filter(item=>(item.productGroup||inferStandaloneProductGroup(item.product))===group).length;
+  const chosen=order.items.filter(item=>(item.productGroup||inferStandaloneProductGroup(item.product))===group&&item.selected!==false).length;
+  return `<button class="btn" style="padding:10px 14px;font-size:13px;background:${chosen===total&&total?'#0F766E':'#E2E8F0'};color:${chosen===total&&total?'white':'#334155'}" onclick="toggleStandaloneGroupSelection(${JSON.stringify(group)},${chosen!==total})">${escapeHtml(group)} (${chosen}/${total})</button>`;
+}).join('');
+const rows=order.items.map((item,index)=>`<tr>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;text-align:center"><input type="checkbox" ${item.selected!==false?'checked':''} onchange="toggleStandaloneItemSelection(${index},this.checked)" style="transform:scale(1.1)"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.room||'')}" oninput="updateStandaloneWorkOrderField(${index},'room',this.value)" style="width:180px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.product||'')}" oninput="updateStandaloneWorkOrderField(${index},'product',this.value)" style="width:260px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.size||'')}" oninput="updateStandaloneWorkOrderField(${index},'size',this.value)" style="width:140px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.fitType||'')}" oninput="updateStandaloneWorkOrderField(${index},'fitType',this.value)" style="width:130px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.rollType||'')}" oninput="updateStandaloneWorkOrderField(${index},'rollType',this.value)" style="width:120px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.controlSide||'')}" oninput="updateStandaloneWorkOrderField(${index},'controlSide',this.value)" style="width:120px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.layoutCode||'')}" oninput="updateStandaloneWorkOrderField(${index},'layoutCode',this.value)" style="width:120px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB"><input value="${escapeHtml(item.comments||'')}" oninput="updateStandaloneWorkOrderField(${index},'comments',this.value)" style="width:220px;padding:8px;border:1px solid #D1D5DB;border-radius:6px"></td>
+</tr>`).join('');
+container.innerHTML=`<div class="summary-grid" style="margin-bottom:18px">
+  <div class="summary-box" style="background:#F0FDFA;color:#134E4A"><div class="summary-label" style="color:#0F766E">Customer</div><input value="${escapeHtml(order.customerName||'')}" oninput="updateStandaloneOrderMeta('customerName',this.value)" style="width:100%;margin-top:8px;padding:10px;border:1px solid #99F6E4;border-radius:8px"></div>
+  <div class="summary-box" style="background:#EFF6FF;color:#1D4ED8"><div class="summary-label" style="color:#1D4ED8">Phone</div><input value="${escapeHtml(order.customerPhone||'')}" oninput="updateStandaloneOrderMeta('customerPhone',this.value)" style="width:100%;margin-top:8px;padding:10px;border:1px solid #BFDBFE;border-radius:8px"></div>
+  <div class="summary-box" style="background:#FEFCE8;color:#854D0E"><div class="summary-label" style="color:#A16207">Address</div><input value="${escapeHtml(order.installationAddress||'')}" oninput="updateStandaloneOrderMeta('installationAddress',this.value)" style="width:100%;margin-top:8px;padding:10px;border:1px solid #FDE68A;border-radius:8px"></div>
+</div>
+<div style="border:1px solid #CBD5E1;border-radius:12px;background:linear-gradient(135deg,#F8FAFC 0%,#EFF6FF 100%);padding:16px 18px;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+    <div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#64748B;text-transform:uppercase">Installer Selection</div>
+      <div style="font-size:18px;font-weight:700;color:#0F172A;margin-top:4px">${selectedCount} of ${order.items.length} items included</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllStandaloneSelections(true)">Select All</button>
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllStandaloneSelections(false)">Clear All</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">${groupButtons}</div>
+</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+  <button class="btn" style="background:#0F766E;color:white" onclick="previewStandaloneWorkOrder()">Open Work Order</button>
+  <button class="btn" style="background:#1D4ED8;color:white" onclick="downloadStandaloneWorkOrder()">Download Work Order</button>
+</div>
+<div class="table-container" style="margin-top:0"><table style="min-width:980px">
+  <thead><tr><th>Send</th><th>Location</th><th>Product</th><th>Measurement</th><th>Fit Type</th><th>Roll Type</th><th>Control Side</th><th>Layout Code</th><th>Comments</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table></div>`;
+}
+
+function updateStandaloneOrderMeta(field,value){
+if(!currentStandaloneWorkOrder)return;
+currentStandaloneWorkOrder[field]=value;
+}
+
+function updateStandaloneWorkOrderField(index,field,value){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items)||!currentStandaloneWorkOrder.items[index])return;
+currentStandaloneWorkOrder.items[index][field]=value;
+if(field==='product')currentStandaloneWorkOrder.items[index].productGroup=inferStandaloneProductGroup(value);
+}
+
+function toggleStandaloneItemSelection(index,checked){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items)||!currentStandaloneWorkOrder.items[index])return;
+currentStandaloneWorkOrder.items[index].selected=!!checked;
+renderStandaloneOrderSheetResult();
+}
+
+function setAllStandaloneSelections(selected){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items))return;
+currentStandaloneWorkOrder.items.forEach(item=>{item.selected=!!selected;});
+renderStandaloneOrderSheetResult();
+}
+
+function toggleStandaloneGroupSelection(group,selected){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items))return;
+currentStandaloneWorkOrder.items.forEach(item=>{
+  const itemGroup=item.productGroup||inferStandaloneProductGroup(item.product);
+  if(itemGroup===group)item.selected=!!selected;
+});
+renderStandaloneOrderSheetResult();
+}
+
+function openStandaloneWorkOrder(order){
+const html=buildStandaloneInstallerWorkOrderHtml(order);
+const printWindow=window.open('','_blank');
+if(!printWindow){
+  alert('Please allow pop-ups to open the installer work order.');
+  return false;
+}
+printWindow.document.open();
+printWindow.document.write(html);
+printWindow.document.close();
+return true;
+}
+
+function downloadStandaloneWorkOrder(){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items)||!currentStandaloneWorkOrder.items.length){
+  alert('Convert an order sheet first.');
+  return;
+}
+const selectedOrder=getSelectedStandaloneWorkOrder(currentStandaloneWorkOrder);
+if(!selectedOrder||!selectedOrder.items.length){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+const html=buildStandaloneInstallerWorkOrderHtml(selectedOrder);
+downloadHtmlDocument((selectedOrder.customerName||'installer-work-order')+'-work-order',html);
+}
+
+async function importStandaloneOrderSheet(){
+const fileEl=document.getElementById('orderSheetFile');
+const file=fileEl&&fileEl.files?fileEl.files[0]:null;
+if(!file){
+  alert('Choose an order sheet first.');
+  return;
+}
+const statusEl=document.getElementById('orderSheetStatus');
+const lowerName=String(file.name||'').toLowerCase();
+if(!/\.(xlsx|xls|csv)$/.test(lowerName)){
+  if(statusEl)statusEl.innerHTML='<strong style="color:#B91C1C">Unsupported file type.</strong> Please upload an Excel sheet (.xlsx, .xls, or .csv). PDF and JPEG measurement reading is not available in this uploader yet.';
+  alert('This uploader currently reads Excel sheets only.\n\nPlease use .xlsx, .xls, or .csv for automatic measurement import.');
+  return;
+}
+if(statusEl)statusEl.innerHTML='<strong style="color:#1D4ED8">Reading '+escapeHtml(file.name)+'...</strong>';
+try{
+  const buffer=await file.arrayBuffer();
+  let binary='';
+  const bytes=new Uint8Array(buffer);
+  const chunkSize=0x8000;
+  for(let i=0;i<bytes.length;i+=chunkSize){
+    binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunkSize));
+  }
+  const response=await authFetch('/.netlify/functions/order-sheet-import',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fileName:file.name,fileData:btoa(binary)})
+  });
+  const data=await response.json();
+  if(!response.ok||data.error)throw new Error(data.error||'Import failed');
+  currentStandaloneWorkOrder=normalizeStandaloneWorkOrderState(data.workOrder||null);
+  lastImportedOrderSheetName=file.name;
+  renderStandaloneOrderSheetResult();
+  const warningHtml=Array.isArray(data.warnings)&&data.warnings.length
+    ? '<div class="import-preview-meta" style="margin-top:8px;color:#9A3412"><strong>Check:</strong> '+data.warnings.map(escapeHtml).join(' • ')+'</div>'
+    : '<div class="import-preview-meta" style="margin-top:8px;color:#065F46">Converted into a work order preview without adding anything to quotes or saved jobs.</div>';
+  if(statusEl)statusEl.innerHTML='<strong style="color:#065F46">Converted '+escapeHtml(file.name)+' into a work order.</strong>'+warningHtml;
+  const resultEl=document.getElementById('standaloneOrderSheetResult');
+  if(resultEl)resultEl.scrollIntoView({behavior:'smooth',block:'start'});
+  if(currentStandaloneWorkOrder&&Array.isArray(currentStandaloneWorkOrder.items)&&currentStandaloneWorkOrder.items.length){
+    const opened=openStandaloneWorkOrder(getSelectedStandaloneWorkOrder(currentStandaloneWorkOrder));
+    if(!opened){
+      alert('Order sheet converted successfully. Your browser blocked the preview popup, so use the "Open Work Order" button shown on the page below.');
+    }else{
+      alert('Order sheet converted successfully.');
+    }
+  }
+}catch(err){
+  if(statusEl)statusEl.innerHTML='<strong style="color:#B91C1C">Import failed.</strong> '+escapeHtml(err.message||'Unable to read order sheet.');
+  alert('Order sheet import failed:\n'+(err.message||'Unable to read order sheet.'));
+}
+}
+
+function getFitLabel(w){
+const fits=[];
+if(w.recessFit)fits.push('Reveal');
+if(w.faceFit)fits.push(w.type==='Blinds'?'Face Fit':'Face');
+if(w.ceilingFit)fits.push('Ceiling');
+return fits.join(', ');
+}
+
+function getDefaultRollType(w){
+return w&&w.type==='Blinds'&&w.subType==='Roller'?'Back Roll':'';
+}
+
+function getDefaultControlSide(w){
+return w&&w.type==='Blinds'&&w.subType==='Roller'?'Left':'';
+}
+
+function getWorkOrderLocationLabel(room,windowNumber,index){
+const cleanRoom=String(room||'').trim();
+const cleanWindow=String(windowNumber||'').trim();
+if(cleanRoom&&cleanWindow)return `${cleanRoom} (${cleanWindow})`;
+return cleanRoom||cleanWindow||`Window ${index+1}`;
+}
+
+function getWorkOrderMeasurementLabel(width,drop){
+const cleanWidth=String(width||'').trim();
+const cleanDrop=String(drop||'').trim();
+if(cleanWidth&&cleanDrop)return `${cleanWidth} x ${cleanDrop}`;
+if(cleanWidth)return cleanWidth;
+if(cleanDrop)return cleanDrop;
+return '';
+}
+
+function getWorkOrderCommentLabel(value){
+return String(value||'').trim();
+}
+
+function getEffectiveProductName(w){
+if(!w)return '';
+const explicit=String(w.productName||'').trim();
+if(explicit)return explicit;
+const fabric=String(w.fabricType||'').trim();
+if(fabric)return fabric;
+return '';
+}
+
+function getDefaultMaterialLabel(w){
+if(!w)return '';
+if(w.type==='Shutters')return 'Premium PVC';
+return '';
+}
+
+function getWindowCategoryKey(w){
+if(w&&w.type==='Verishade')return `Verishade-${normalizeVerishadeSubtypeValue(w.subType)}`;
+return getWindowKey(w);
+}
+
+function setInstallerSelectionForCategory(index,selected){
+if(!currentJob||!Array.isArray(currentJob.windows)||!currentJob.windows[index])return;
+const categoryKey=getWindowCategoryKey(currentJob.windows[index]);
+currentJob.windows.forEach(w=>{
+  if(getWindowCategoryKey(w)!==categoryKey)return;
+  w.sendToInstaller=!!selected;
+});
+if(showingFinalDetails)renderPricingAdjustments();
+renderInstallerSelectionPanel();
+}
+
+function setAllInstallerSelections(selected){
+if(!currentJob||!Array.isArray(currentJob.windows))return;
+currentJob.windows.forEach(w=>{w.sendToInstaller=!!selected;});
+if(showingFinalDetails)renderPricingAdjustments();
+renderInstallerSelectionPanel();
+}
+
+function persistSavedJobSelection(job){
+saveJobs();
+upsertJobCloud(job).catch(()=>{});
+if(!document.getElementById('viewSaved').classList.contains('hidden'))renderSavedJobs();
+}
+
+function renderSavedJobWorkOrderModal(){
+const body=document.getElementById('savedJobWorkOrderModalBody');
+if(!body)return;
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job){
+  body.innerHTML='<p style="color:#B91C1C">Saved job not found.</p>';
+  return;
+}
+  job.windows=(job.windows||[]).map(w=>{normalizeWindowOptionState(w);return w;});
+const selectedCount=job.windows.filter(w=>w&&w.sendToInstaller!==false).length;
+const groupKeys=Array.from(new Set(job.windows.map(w=>getWindowCategoryKey(w))));
+const groupButtons=groupKeys.map((groupKey,groupIndex)=>{
+  const matching=job.windows.filter(w=>getWindowCategoryKey(w)===groupKey);
+  const selected=matching.filter(w=>w.sendToInstaller!==false).length;
+  const label=formatProductKeyLabel(groupKey||`Group ${groupIndex+1}`);
+  return `<button class="btn" style="padding:10px 14px;font-size:13px;background:${selected===matching.length&&matching.length?'#0F766E':'#E2E8F0'};color:${selected===matching.length&&matching.length?'white':'#334155'}" onclick="toggleSavedJobWorkOrderGroup(${JSON.stringify(groupKey)},${selected!==matching.length})">${escapeHtml(label)} (${selected}/${matching.length})</button>`;
+}).join('');
+const rows=job.windows.map((w,index)=>`<tr>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;text-align:center"><input type="checkbox" ${w.sendToInstaller!==false?'checked':''} onchange="toggleSavedJobWorkOrderItem(${index},this.checked)" style="transform:scale(1.1)"></td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB">${escapeHtml(getWorkOrderLocationLabel(w.room,w.windowNumber,index))}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB">${escapeHtml(getInstallerProductLabel(w))}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #E5E7EB">${escapeHtml(getWorkOrderMeasurementLabel(w.width,w.drop))}</td>
+</tr>`).join('');
+body.innerHTML=`<div style="border:1px solid #CBD5E1;border-radius:12px;background:linear-gradient(135deg,#F8FAFC 0%,#EFF6FF 100%);padding:16px 18px">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+    <div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#64748B;text-transform:uppercase">Selected For Installer</div>
+      <div style="font-size:18px;font-weight:700;color:#0F172A;margin-top:4px">${selectedCount} of ${job.windows.length} products included</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllSavedJobWorkOrderSelections(true)">Select All</button>
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllSavedJobWorkOrderSelections(false)">Clear All</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">${groupButtons}</div>
+</div>
+<div class="table-container" style="margin-top:16px">
+  <table style="min-width:720px">
+    <thead><tr><th>Send</th><th>Location</th><th>Product</th><th>Measurement</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>
+<div style="margin-top:16px">
+  <label style="display:block;color:#0F172A;font-weight:600;margin-bottom:8px">Notes For Installer</label>
+  <textarea rows="5" oninput="updateSavedJobWorkOrderNotes(this.value)" style="width:100%;padding:12px;border:2px solid #D1D5DB;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical">${escapeHtml(job.specialInstructions||'')}</textarea>
+</div>`;
+}
+
+function openSavedJobWorkOrderModal(index){
+if(!jobs[index])return;
+savedJobWorkOrderIndex=index;
+renderSavedJobWorkOrderModal();
+document.getElementById('savedJobWorkOrderModal').classList.add('active');
+}
+
+function closeSavedJobWorkOrderModal(){
+savedJobWorkOrderIndex=null;
+document.getElementById('savedJobWorkOrderModal').classList.remove('active');
+}
+
+function toggleSavedJobWorkOrderItem(index,selected){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job||!job.windows||!job.windows[index])return;
+job.windows[index].sendToInstaller=!!selected;
+persistSavedJobSelection(job);
+renderSavedJobWorkOrderModal();
+}
+
+function toggleSavedJobWorkOrderGroup(groupKey,selected){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job||!Array.isArray(job.windows))return;
+job.windows.forEach(w=>{
+  if(getWindowCategoryKey(w)!==groupKey)return;
+  w.sendToInstaller=!!selected;
+});
+persistSavedJobSelection(job);
+renderSavedJobWorkOrderModal();
+}
+
+function setAllSavedJobWorkOrderSelections(selected){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job||!Array.isArray(job.windows))return;
+job.windows.forEach(w=>{w.sendToInstaller=!!selected;});
+persistSavedJobSelection(job);
+renderSavedJobWorkOrderModal();
+}
+
+function updateSavedJobWorkOrderNotes(value){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job)return;
+job.specialInstructions=value;
+persistSavedJobSelection(job);
+}
+
+function applyWindowFieldToCategory(index,field,value){
+if(!currentJob||!Array.isArray(currentJob.windows)||!currentJob.windows[index])return;
+const source=currentJob.windows[index];
+const categoryKey=getWindowCategoryKey(source);
+currentJob.windows.forEach(w=>{
+  if(getWindowCategoryKey(w)!==categoryKey)return;
+  w[field]=value;
+});
+}
+
+function updateCategoryProductName(index,value){
+applyWindowFieldToCategory(index,'productName',value);
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function updateCategoryColor(index,value){
+applyWindowFieldToCategory(index,'color',value);
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function updateCategoryRollerField(index,field,value){
+applyWindowFieldToCategory(index,field,value);
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function getXeroLocationLabel(w,index){
+const room=String(w.room||'').trim();
+const windowNumber=String(w.windowNumber||'').trim();
+if(room&&windowNumber)return `${room} (${windowNumber})`;
+return room||windowNumber||`Window ${index+1}`;
+}
+
+function getXeroProductFamilyLabel(w){
+if(!w)return 'Window Furnishing';
+if(w.type==='Blinds')return 'Blinds';
+if(w.type==='Curtains')return 'Curtains';
+if(w.type==='Verishade')return 'Verishade';
+if(w.type==='Shutters')return 'Shutters';
+return w.type||'Window Furnishing';
+}
+
+function getXeroTypeLabel(w){
+if(!w)return '';
+if(w.type==='Shutters')return 'Plantation Shutter';
+if(w.type==='Verishade')return normalizeVerishadeSubtypeValue(w.subType)==='Soft Wave'?'Soft Wave':'';
+const subType=String(w.subType||'').trim();
+return subType&&subType!=='-'?subType:'';
+}
+
+function getShutterPanelCount(w){
+const width=parseFloat(w&&w.width)||0;
+if(width<=0)return 1;
+return Math.max(1,Math.ceil(width/600));
+}
+
+function buildXeroLineDescription(w,index){
+const lines=[];
+lines.push(`Location: ${getXeroLocationLabel(w,index)}`);
+lines.push(`Product: ${getXeroProductFamilyLabel(w)}`);
+const typeLabel=getXeroTypeLabel(w);
+if(typeLabel)lines.push(`Type: ${typeLabel}`);
+const defaultMaterial=getDefaultMaterialLabel(w);
+if(w.fabricType&&w.type!=='Shutters')lines.push(`Fabric: ${w.fabricType}`);
+else if(defaultMaterial)lines.push(`Material: ${defaultMaterial}`);
+else{
+  const productName=getEffectiveProductName(w);
+  if(productName)lines.push(`Name: ${productName}`);
+}
+if(w.color)lines.push(`Colour: ${w.color}`);
+const fitLabel=getFitLabel(w);
+if(fitLabel)lines.push(`Fit Type: ${fitLabel}`);
+if(w.type==='Blinds'&&w.subType==='Roller'&&w.rollerRollType)lines.push(`Roll: ${w.rollerRollType}`);
+if(w.type==='Blinds'&&w.subType==='Roller'&&w.rollerControlSide)lines.push(`Control Side: ${w.rollerControlSide}`);
+if(w.type==='Shutters')lines.push(`Panels: ${getShutterPanelCount(w)}`);
+if(w.midRailPosition)lines.push(`Mid Rail: ${w.midRailPosition}mm`);
+if(w.notes)lines.push(`Notes: ${w.notes}`);
+return lines.join('\n');
+}
+
+function getInstallerProductLabel(w){
+if(!w)return '';
+if(w.type==='Blinds')return `Blinds - ${w.subType}`;
+if(w.type==='Curtains')return `Curtains - ${w.subType}`;
+if(w.type==='Verishade'&&normalizeVerishadeSubtypeValue(w.subType)==='Soft Wave')return 'Verishade - Soft Wave';
+return w.type||'';
+}
+
+function getCurtainMotorisedTrackLengthMeters(w){
+const width=parseFloat(w&&w.width)||0;
+if(width<=0)return null;
+return Math.min(12,Math.max(2,Math.ceil(width/1000)));
+}
+
+function getCurtainMotorisedTrackPrice(w){
+if(!w||w.type!=='Curtains'||!w.curtainMotorisedTrackEnabled)return 0;
+const meters=getCurtainMotorisedTrackLengthMeters(w);
+return meters&&CURTAIN_MOTORISED_CLEAR_WAVE_PRICES[meters]?CURTAIN_MOTORISED_CLEAR_WAVE_PRICES[meters]:0;
+}
+
+function getCurtainMotorisedRemotePrice(w){
+if(!w||w.type!=='Curtains')return 0;
+const match=CURTAIN_MOTORISED_REMOTE_OPTIONS.find(option=>option.value===w.curtainRemoteType);
+return match?match.amount:0;
+}
+
+function getCurtainMotorisedExtrasCost(w){
+if(!w||w.type!=='Curtains')return 0;
+const charger=w.curtainAddCharger?CURTAIN_MOTORISED_CHARGER_PRICE:0;
+return getCurtainMotorisedTrackPrice(w)+getCurtainMotorisedRemotePrice(w)+charger;
+}
+
+function normalizeQuoteWorkOrder(job){
+const safeJob=job||{};
+return {
+  customerName:safeJob.clientName||'',
+  customerPhone:safeJob.phone||'',
+  installationAddress:safeJob.address||'',
+  specialInstructions:safeJob.specialInstructions||'',
+  items:(safeJob.windows||[]).filter(w=>w&&w.sendToInstaller!==false).map((w,index)=>({
+    room:getWorkOrderLocationLabel(w.room,w.windowNumber,index),
+    product:getInstallerProductLabel(w),
+    size:getWorkOrderMeasurementLabel(w.width,w.drop),
+    fitType:getFitLabel(w)||'',
+    rollType:w.type==='Blinds'&&w.subType==='Roller'?(w.rollerRollType||getDefaultRollType(w)||''):'',
+    controlSide:w.type==='Blinds'&&w.subType==='Roller'?(w.rollerControlSide||getDefaultControlSide(w)||''):'',
+    layoutCode:w.type==='Shutters'?(w.layoutCode||''):'',
+    comments:getWorkOrderCommentLabel(w.notes)
+  }))
+};
+}
+
+function normalizeStandaloneWorkOrder(order){
+const safeOrder=order||{};
+return {
+  customerName:safeOrder.customerName||'',
+  customerPhone:safeOrder.customerPhone||'',
+  installationAddress:safeOrder.installationAddress||'',
+  specialInstructions:safeOrder.specialInstructions||'',
+  items:(safeOrder.items||[]).map((item,index)=>({
+    room:getWorkOrderLocationLabel(item.room,item.itemNumber,index),
+    product:item.product||'',
+    size:getWorkOrderMeasurementLabel(item.size,''),
+    fitType:item.fitType||'',
+    rollType:item.rollType||'',
+    controlSide:item.controlSide||'',
+    layoutCode:item.layoutCode||'',
+    comments:getWorkOrderCommentLabel(item.comments)
+  }))
+};
+}
+
+function downloadHtmlDocument(filenameBase,html){
+const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+const url=URL.createObjectURL(blob);
+const link=document.createElement('a');
+const safeName=(filenameBase||'work-order').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||'work-order';
+link.href=url;
+link.download=safeName+'.html';
+document.body.appendChild(link);
+link.click();
+link.remove();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function buildUnifiedInstallerWorkOrderHtml(workOrder){
+const safeOrder=workOrder||{};
+const rows=(safeOrder.items||[]).map((item,index)=>`<tr>
+    <td class="editable" contenteditable="true">${escapeHtml(item.room||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.product||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.size||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.fitType||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.rollType||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.controlSide||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.layoutCode||'')}</td>
+    <td class="editable" contenteditable="true">${escapeHtml(item.comments||'')}</td>
+  </tr>`).join('');
+const specialInstructions=escapeHtml(safeOrder.specialInstructions||'').replace(/\n/g,'<br>');
+return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Installer Work Order - ${escapeHtml(safeOrder.customerName||'Decovibes')}</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#e7e5e4;color:#1f2937}
+.page{max-width:1120px;margin:24px auto;background:white;padding:0;box-shadow:0 18px 40px rgba(15,23,42,.12)}
+.topbar{background:linear-gradient(135deg,#0f766e 0%,#115e59 100%);color:white;padding:26px 32px 20px}
+.brand{font-size:13px;font-weight:700;letter-spacing:.18em;opacity:.88}
+.headline{font-size:31px;font-weight:800;margin:10px 0 6px;letter-spacing:.03em}
+.subhead{font-size:13px;opacity:.9}
+.content{padding:26px 32px 30px}
+.meta-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.meta-box{border:1px solid #d6d3d1;border-radius:12px;padding:12px 14px;background:#fafaf9;min-height:78px}
+.meta-label{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.meta-value{font-size:15px;font-weight:600;line-height:1.4;white-space:pre-wrap}
+.editable{outline:none;border-radius:6px;transition:background .2s, box-shadow .2s;padding:2px 4px;margin:-2px -4px}
+.editable:hover,.editable:focus{background:#ecfeff;box-shadow:0 0 0 2px #99f6e4}
+.section-title{font-size:15px;font-weight:800;color:#0f766e;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.06em}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #d6d3d1;padding:11px 12px;vertical-align:top;text-align:left;font-size:14px}
+th{background:#eefbf8;color:#134e4a;font-weight:800}
+tbody tr:nth-child(even){background:#fcfcfb}
+.instructions{border:1px solid #d6d3d1;border-radius:12px;padding:14px;background:#fffaf0;min-height:90px;white-space:pre-wrap}
+.sign-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.sign-box{border:1px solid #d6d3d1;border-radius:12px;padding:14px;height:90px}
+.footer{margin-top:24px;font-size:12px;color:#6b7280;text-align:center;border-top:1px solid #e7e5e4;padding-top:16px}
+.helper{margin:14px 0 18px;font-size:12px;color:#0f766e;background:#ecfeff;border:1px solid #99f6e4;border-radius:10px;padding:10px 12px}
+.actions{padding:20px 32px 0;display:flex;gap:10px;flex-wrap:wrap}
+.actions .print-btn{padding:10px 18px;border:none;border-radius:8px;color:white;font-weight:700;cursor:pointer}
+@media print{body{background:white}.page{max-width:none;margin:0;box-shadow:none}.actions,.helper{display:none}.content{padding:0}.topbar{padding:18px 0 16px;background:none;color:#0f172a;border-bottom:2px solid #0f766e}.brand{color:#0f766e}.subhead{color:#475569}}
+@media (max-width:720px){.page{padding:20px}.meta-grid,.sign-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="brand">DECO VIBES WINDOW FURNISHINGS PTY LTD</div>
+    <div class="headline">INSTALLER WORK ORDER</div>
+    <div class="subhead">Prepared for installation scheduling and site execution</div>
+  </div>
+  <div class="actions"><button class="print-btn" onclick="window.print()" style="background:#0f766e">Print / Save PDF</button><button class="print-btn" onclick="window.close()" style="background:#475569">Close</button></div>
+  <div class="content">
+  <div class="helper print-btn">You can edit customer details and every work-order row before printing.</div>
+  <div class="meta-grid">
+    <div class="meta-box"><div class="meta-label">Customer Name</div><div class="meta-value editable" contenteditable="true">${escapeHtml(safeOrder.customerName||'')}</div></div>
+    <div class="meta-box"><div class="meta-label">Contact Number</div><div class="meta-value editable" contenteditable="true">${escapeHtml(safeOrder.customerPhone||'')}</div></div>
+    <div class="meta-box"><div class="meta-label">Installation Address</div><div class="meta-value editable" contenteditable="true">${escapeHtml(safeOrder.installationAddress||'')}</div></div>
+  </div>
+  <div class="section-title">Products To Install</div>
+  <table>
+    <thead>
+      <tr><th>Location</th><th>Product</th><th>Measurement</th><th>Fit Type</th><th>Roll Type</th><th>Control Side</th><th>Layout Code</th><th>Comments</th></tr>
+    </thead>
+    <tbody>${rows||'<tr><td colspan="8">No products loaded</td></tr>'}</tbody>
+  </table>
+  <div class="section-title">Notes</div>
+  <div class="instructions editable" contenteditable="true">${specialInstructions||'&nbsp;'}</div>
+  <div class="section-title">Completion / Sign Off</div>
+  <div class="sign-grid">
+    <div class="sign-box"><div class="meta-label">Installer Name</div></div>
+    <div class="sign-box"><div class="meta-label">Customer Name</div></div>
+  </div>
+  <div class="footer">Decovibes Window Furnishings | 0487 405 014 | www.decovibes.com.au</div>
+</div>
+</div>
+</body>
+</html>`;
+}
+
+function buildInstallerWorkOrderHtml(job){
+return buildUnifiedInstallerWorkOrderHtml(normalizeQuoteWorkOrder(job));
+}
+
+function openInstallerWorkOrder(job){
+const html=buildInstallerWorkOrderHtml(job);
+const printWindow=window.open('','_blank');
+if(!printWindow){
+  alert('Please allow pop-ups to open the installer work order.');
+  return;
+}
+printWindow.document.open();
+printWindow.document.write(html);
+printWindow.document.close();
+}
+
+function downloadCurrentWorkOrder(){
+if(!currentJob){
+  alert('Start or open a job first.');
+  return;
+}
+syncJobCoreFieldsFromForm();
+if(!currentJob.clientName){
+  alert('Please enter the customer name first.');
+  return;
+}
+const selectedCount=(currentJob.windows||[]).filter(w=>w&&w.sendToInstaller!==false).length;
+if(!selectedCount){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+const html=buildInstallerWorkOrderHtml(currentJob);
+downloadHtmlDocument((currentJob.clientName||'installer-work-order')+'-work-order',html);
+}
+
+function buildStandaloneInstallerWorkOrderHtml(order){
+return buildUnifiedInstallerWorkOrderHtml(normalizeStandaloneWorkOrder(order));
+}
+
+function previewStandaloneWorkOrder(){
+if(!currentStandaloneWorkOrder||!Array.isArray(currentStandaloneWorkOrder.items)||!currentStandaloneWorkOrder.items.length){
+  alert('Convert an order sheet first.');
+  return;
+}
+const selectedOrder=getSelectedStandaloneWorkOrder(currentStandaloneWorkOrder);
+if(!selectedOrder||!selectedOrder.items.length){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+openStandaloneWorkOrder(selectedOrder);
+}
+
+function previewCurrentWorkOrder(){
+if(!currentJob){
+  alert('Start or open a job first.');
+  return;
+}
+syncJobCoreFieldsFromForm();
+if(!currentJob.clientName){
+  alert('Please enter the customer name first.');
+  return;
+}
+const selectedCount=(currentJob.windows||[]).filter(w=>w&&w.sendToInstaller!==false).length;
+if(!selectedCount){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+openInstallerWorkOrder(currentJob);
+}
+
+function downloadInstallerWorkOrder(index){
+openSavedJobWorkOrderModal(index);
+}
+
+function previewSavedJobWorkOrder(){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job)return;
+const selectedCount=(job.windows||[]).filter(w=>w&&w.sendToInstaller!==false).length;
+if(!selectedCount){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+openInstallerWorkOrder(job);
+}
+
+function downloadSavedJobWorkOrder(){
+const job=(savedJobWorkOrderIndex!=null&&jobs[savedJobWorkOrderIndex])?jobs[savedJobWorkOrderIndex]:null;
+if(!job)return;
+const selectedCount=(job.windows||[]).filter(w=>w&&w.sendToInstaller!==false).length;
+if(!selectedCount){
+  alert('Select at least one product to include in the work order.');
+  return;
+}
+const html=buildInstallerWorkOrderHtml(job);
+downloadHtmlDocument((job.clientName||'installer-work-order')+'-work-order',html);
 }
 
 function handleJobMultiplierBlur(idx,el){
@@ -1300,6 +2295,33 @@ logoutEmployee(true);
 throw new Error('Session expired. Please log in again.');
 }
 return response;
+}
+
+function getLocalXeroTokenValue(){
+return xeroLocalTokenMemory||getStorageItem(XERO_LOCAL_TOKEN_KEY)||'';
+}
+
+function hasLocalXeroToken(){
+return !!getLocalXeroTokenValue();
+}
+
+function setLocalXeroTokenValue(tokenRecord){
+if(!tokenRecord){
+  xeroLocalTokenMemory='';
+  removeStorageItem(XERO_LOCAL_TOKEN_KEY);
+  return;
+}
+try{
+  xeroLocalTokenMemory=btoa(JSON.stringify(tokenRecord));
+  setStorageItem(XERO_LOCAL_TOKEN_KEY,xeroLocalTokenMemory);
+}catch(e){
+  xeroLocalTokenMemory='';
+}
+}
+
+function getXeroRequestHeaders(){
+const token=getLocalXeroTokenValue();
+return token?{'X-Xero-Local-Token':token}:{};
 }
 
 async function checkSession(){
@@ -1537,13 +2559,22 @@ const response=await authFetch('/.netlify/functions/jobs-list');
 if(!response.ok)return false;
 const data=await response.json();
 if(!Array.isArray(data.jobs))return false;
-if(data.jobs.length===0&&Array.isArray(jobs)&&jobs.length>0){
-await Promise.all(jobs.map(job=>upsertJobCloud(job)));
-}else{
-jobs=data.jobs;
+const localJobs=Array.isArray(jobs)?jobs:[];
+const cloudJobs=data.jobs;
+const mergedJobs=mergeJobsByLatest(localJobs,cloudJobs);
+jobs=mergedJobs;
 setStorageItem('decovibes_jobs',JSON.stringify(jobs));
 updateJobCount();
 if(!document.getElementById('viewSaved').classList.contains('hidden'))renderSavedJobs();
+const cloudIds=new Set(cloudJobs.filter(job=>job&&job.id!==undefined&&job.id!==null).map(job=>String(job.id)));
+const localOnlyOrNewer=mergedJobs.filter(job=>{
+  const key=String(job.id);
+  if(!cloudIds.has(key))return true;
+  const cloudMatch=cloudJobs.find(item=>String(item.id)===key);
+  return getJobSyncTimestamp(job)>getJobSyncTimestamp(cloudMatch);
+});
+if(localOnlyOrNewer.length){
+  await Promise.all(localOnlyOrNewer.map(job=>upsertJobCloud(job)));
 }
 return true;
 }catch(e){
@@ -1828,25 +2859,25 @@ document.getElementById('jobCount').textContent=jobs.length;
 
 function showTab(tab){
 document.getElementById('btnMeasure').classList.toggle('active',tab==='measure');
+document.getElementById('btnOrders').classList.toggle('active',tab==='orders');
 document.getElementById('btnJobs').classList.toggle('active',tab==='saved');
 document.getElementById('viewMeasure').classList.toggle('hidden',tab!=='measure');
+document.getElementById('viewOrders').classList.toggle('hidden',tab!=='orders');
 document.getElementById('viewSaved').classList.toggle('hidden',tab!=='saved');
 if(tab==='saved')renderSavedJobs();
 }
 
 function startNewJob(){
-currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],windows:[],rates:Object.assign({},defaultRates),multipliers:Object.assign({},defaultMultipliers),freightCost:0,freightCarrier:freightCarrier};
+currentJob={id:Date.now(),clientName:'',address:'',phone:'',email:'',date:new Date().toISOString().split('T')[0],customerNumber:'',installerName:'',materialCollection:'',specialInstructions:'',sourceFileName:'',windows:[],rates:Object.assign({},defaultRates),multipliers:Object.assign({},defaultMultipliers),freightCost:0,freightCarrier:freightCarrier};
 normalizeJobPricingState(currentJob);
 showingFinalDetails=false;
 document.getElementById('emptyState').classList.add('hidden');
 document.getElementById('jobForm').classList.remove('hidden');
 document.getElementById('windowsCard').classList.remove('hidden');
 document.getElementById('jobButtons').classList.remove('hidden');
-document.getElementById('clientName').value='';
-document.getElementById('address').value='';
-document.getElementById('phone').value='';
-document.getElementById('email').value='';
+populateJobCoreFields(currentJob);
 clearWhatsAppImport();
+clearOrderSheetFile();
 updateWindowsDisplay();
 }
 
@@ -1860,11 +2891,13 @@ if(currentJob.windows.length===0){
 document.getElementById('emptyWindows').classList.remove('hidden');
 document.getElementById('windowsTable').classList.add('hidden');
 document.getElementById('liveSummary').classList.add('hidden');
+document.getElementById('installerSelectionPanel').classList.add('hidden');
 }else{
 document.getElementById('emptyWindows').classList.add('hidden');
 document.getElementById('windowsTable').classList.remove('hidden');
 renderWindows();
 updateLiveSummary();
+renderInstallerSelectionPanel();
 }
 }
 
@@ -1879,7 +2912,7 @@ const areaText=w.type==='Curtains'?areaCalc.toFixed(2)+'m':areaCalc.toFixed(3)+'
 const alertText=getAlert(w);
 let fitTypeHtml='';
 if(w.type==='Blinds'){
-fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.recessFit?'checked':''} onchange="updateWindowFit(${index},'recessFit',this.checked)" style="width:auto"> Recess</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.faceFit?'checked':''} onchange="updateWindowFit(${index},'faceFit',this.checked)" style="width:auto"> Face</label></div>`;
+fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.recessFit?'checked':''} onchange="updateWindowFit(${index},'recessFit',this.checked)" style="width:auto"> Reveal</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.faceFit?'checked':''} onchange="updateWindowFit(${index},'faceFit',this.checked)" style="width:auto"> Face Fit</label></div>`;
 }else if(w.type==='Curtains'||w.type==='Verishade'){
 fitTypeHtml=`<div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.ceilingFit?'checked':''} onchange="updateWindowFit(${index},'ceilingFit',this.checked)" style="width:auto"> Ceiling</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${w.faceFit?'checked':''} onchange="updateWindowFit(${index},'faceFit',this.checked)" style="width:auto"> Face</label></div>`;
 }else if(w.type==='Shutters'){
@@ -1902,6 +2935,8 @@ if(type==='Blinds'){
 ['Roller','Trublockout','Vertical','Zebra','Venetian'].forEach(s=>{options+=`<option ${s===selected?'selected':''}>${s}</option>`;});
 }else if(type==='Curtains'){
 ['Sheer','Blockout'].forEach(s=>{options+=`<option ${s===selected?'selected':''}>${s}</option>`;});
+}else if(type==='Verishade'){
+['Standard','Soft Wave'].forEach(s=>{options+=`<option ${s===selected?'selected':''}>${s}</option>`;});
 }else{
 options=`<option>-</option>`;
 }
@@ -1910,18 +2945,30 @@ return options;
 
 function updateWindowType(index,type){
 currentJob.windows[index].type=type;
-currentJob.windows[index].subType=type==='Blinds'?'Roller':type==='Curtains'?'Sheer':'-';
+currentJob.windows[index].subType=type==='Blinds'?'Roller':type==='Curtains'?'Sheer':type==='Verishade'?'Standard':'-';
+currentJob.windows[index].productName='';
 currentJob.windows[index].fabricType=getFabricTypeDefault(type,currentJob.windows[index].subType);
 currentJob.windows[index].rateOverride='';
 currentJob.windows[index].pricingModeOverride='';
 currentJob.windows[index].selectedFixedExtras=[];
 currentJob.windows[index].selectedPercentExtras=[];
 currentJob.windows[index].manualProductExtra='';
+currentJob.windows[index].motorisationBrand='';
+currentJob.windows[index].motorisationMotorChoice='';
+currentJob.windows[index].motorisationRemoteChoice='';
+currentJob.windows[index].motorisationChargerChoice='';
+currentJob.windows[index].motorisationHubChoice='';
 currentJob.windows[index].motorisationChoice='';
 currentJob.windows[index].motorisationCost='';
+currentJob.windows[index].rollerRollType=getDefaultRollType(currentJob.windows[index]);
+currentJob.windows[index].rollerControlSide=getDefaultControlSide(currentJob.windows[index]);
+currentJob.windows[index].curtainMotorisedTrackEnabled=false;
+currentJob.windows[index].curtainAddCharger=false;
+currentJob.windows[index].curtainRemoteType='';
 currentJob.windows[index].recessFit=false;
 currentJob.windows[index].faceFit=false;
 currentJob.windows[index].ceilingFit=false;
+if(type==='Curtains')currentJob.windows[index].ceilingFit=true;
 currentJob.windows[index].midRailPosition=null;
 updateWindowsDisplay();
 }
@@ -1933,28 +2980,84 @@ if(type==='Blinds'&&subType==='Roller')return 'Toorak';
 if(type==='Blinds'&&subType==='Vertical')return 'Category A';
 if(type==='Curtains'&&subType==='Sheer')return 'Group 1 - Most Trending';
 if(type==='Curtains'&&subType==='Blockout')return 'Group 1 - Nettex';
-if(type==='Verishade')return 'Category 1 - Wand';
+if(type==='Verishade'&&normalizeVerishadeSubtypeValue(subType)==='Soft Wave')return 'Soft Wave';
+if(type==='Verishade')return 'Classic';
 return '';
 }
 
 function updateWindowField(index,field,value){
 currentJob.windows[index][field]=value;
 if(field==='subType'){
+if(currentJob.windows[index].type==='Verishade')currentJob.windows[index].subType=normalizeVerishadeSubtypeValue(currentJob.windows[index].subType);
+currentJob.windows[index].productName='';
 currentJob.windows[index].fabricType=getFabricTypeDefault(currentJob.windows[index].type,currentJob.windows[index].subType);
 currentJob.windows[index].rateOverride='';
 currentJob.windows[index].pricingModeOverride='';
 currentJob.windows[index].selectedFixedExtras=[];
 currentJob.windows[index].selectedPercentExtras=[];
 currentJob.windows[index].manualProductExtra='';
+currentJob.windows[index].motorisationBrand='';
+currentJob.windows[index].motorisationMotorChoice='';
+currentJob.windows[index].motorisationRemoteChoice='';
+currentJob.windows[index].motorisationChargerChoice='';
+currentJob.windows[index].motorisationHubChoice='';
 currentJob.windows[index].motorisationChoice='';
 currentJob.windows[index].motorisationCost='';
+currentJob.windows[index].rollerRollType=getDefaultRollType(currentJob.windows[index]);
+currentJob.windows[index].rollerControlSide=getDefaultControlSide(currentJob.windows[index]);
+currentJob.windows[index].curtainMotorisedTrackEnabled=false;
+currentJob.windows[index].curtainAddCharger=false;
+currentJob.windows[index].curtainRemoteType='';
+currentJob.windows[index].recessFit=false;
+currentJob.windows[index].faceFit=false;
+currentJob.windows[index].ceilingFit=currentJob.windows[index].type==='Curtains';
 }
 renderWindows();
 updateLiveSummary();
 }
 
+function toggleCurtainMotorisedTrack(index,checked){
+normalizeWindowOptionState(currentJob.windows[index]);
+currentJob.windows[index].curtainMotorisedTrackEnabled=!!checked;
+if(!checked){
+  currentJob.windows[index].curtainAddCharger=false;
+  currentJob.windows[index].curtainRemoteType='';
+}
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function toggleCurtainCharger(index,checked){
+normalizeWindowOptionState(currentJob.windows[index]);
+currentJob.windows[index].curtainAddCharger=!!checked;
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
+function updateCurtainRemote(index,value){
+normalizeWindowOptionState(currentJob.windows[index]);
+currentJob.windows[index].curtainRemoteType=value||'';
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
+}
+
 function updateWindowFit(index,field,checked){
-currentJob.windows[index][field]=checked;
+const source=currentJob.windows[index];
+if(!source)return;
+const categoryKey=getWindowCategoryKey(source);
+currentJob.windows.forEach(w=>{
+  if(getWindowCategoryKey(w)!==categoryKey)return;
+  if(field==='recessFit'&&checked)w.faceFit=false;
+  if(field==='faceFit'&&checked)w.recessFit=false;
+  if(field==='ceilingFit'&&checked)w.faceFit=false;
+  if(field==='faceFit'&&checked&&w.type!=='Blinds'){
+    w.ceilingFit=false;
+  }
+  w[field]=checked;
+});
+renderWindows();
+if(showingFinalDetails)renderPricingAdjustments();
+updateLiveSummary();
 }
 
 function deleteWindow(index){
@@ -2085,6 +3188,7 @@ function updateLiveSummary(){
 const calc=calculateTotals(currentJob);
 if(!calc||calc.totalSupplyCost===0){
 document.getElementById('liveSummary').classList.add('hidden');
+renderInstallerSelectionPanel();
 return;
 }
 document.getElementById('liveSummary').classList.remove('hidden');
@@ -2098,16 +3202,51 @@ html+='</div>';
 html+=`<div style="margin-top:15px;font-size:14px;opacity:0.9">Markup: $${calc.totalMarkup.toFixed(2)} • Install: $${calc.installTotal.toFixed(2)} • Logistics: $${calc.logisticsTotal.toFixed(2)} • Freight: $${calc.freight.toFixed(2)} (${calc.freightPerProduct.toFixed(2)}/product) • GST: $${calc.gst.toFixed(2)}</div>`;
 html+='</div>';
 document.getElementById('liveSummary').innerHTML=html;
+renderInstallerSelectionPanel();
+}
+
+function renderInstallerSelectionPanel(){
+const panel=document.getElementById('installerSelectionPanel');
+if(!panel)return;
+if(!currentJob||!Array.isArray(currentJob.windows)||!currentJob.windows.length){
+  panel.classList.add('hidden');
+  panel.innerHTML='';
+  return;
+}
+const installerSelectionCount=currentJob.windows.filter(w=>w&&w.sendToInstaller!==false).length;
+const installerGroupKeys=Array.from(new Set(currentJob.windows.map(w=>getWindowCategoryKey(w))));
+const installerGroupButtons=installerGroupKeys.map((groupKey,groupIndex)=>{
+  const matching=currentJob.windows.filter(w=>getWindowCategoryKey(w)===groupKey);
+  const selected=matching.filter(w=>w.sendToInstaller!==false).length;
+  const label=formatProductKeyLabel(groupKey||`Group ${groupIndex+1}`);
+  const firstIndex=currentJob.windows.findIndex(w=>getWindowCategoryKey(w)===groupKey);
+  return `<button class="btn" style="padding:10px 14px;font-size:13px;background:${selected===matching.length&&matching.length?'#0F766E':'#E2E8F0'};color:${selected===matching.length&&matching.length?'white':'#334155'}" onclick="setInstallerSelectionForCategory(${firstIndex},${selected!==matching.length})">${escapeHtml(label)} (${selected}/${matching.length})</button>`;
+}).join('');
+panel.classList.remove('hidden');
+panel.innerHTML=`<div class="card" style="margin-top:20px">
+  <h3 class="card-title">🧾 Installer Work Order Selection</h3>
+  <p style="color:#64748B;font-size:14px;margin-bottom:14px">Choose which product groups should appear in the installer work order before you preview or download it.</p>
+  <div style="border:1px solid #CBD5E1;border-radius:12px;background:linear-gradient(135deg,#F8FAFC 0%,#EFF6FF 100%);padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#64748B;text-transform:uppercase">Selected For Installer</div>
+        <div style="font-size:18px;font-weight:700;color:#0F172A;margin-top:4px">${installerSelectionCount} of ${currentJob.windows.length} products included</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllInstallerSelections(true)">Select All</button>
+        <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllInstallerSelections(false)">Clear All</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">${installerGroupButtons}</div>
+  </div>
+</div>`;
 }
 
 function showFinalDetails(){
-currentJob.clientName=document.getElementById('clientName').value;
+syncJobCoreFieldsFromForm();
 if(!currentJob.clientName){alert('Please enter client name');return;}
 if(currentJob.windows.length===0){alert('Please add at least one window');return;}
 for(let i=0;i<currentJob.windows.length;i++){if(!checkMidRailRequired(i))return;}
-currentJob.address=document.getElementById('address').value;
-currentJob.phone=document.getElementById('phone').value;
-currentJob.email=document.getElementById('email').value;
 currentJob.freightCarrier=freightCarrier;
 showingFinalDetails=true;
 document.getElementById('btnContinue').classList.add('hidden');
@@ -2174,8 +3313,29 @@ summaryHtml+=`<div style="margin-top:20px;background:white;border:2px solid #BFD
 document.getElementById('finalSummary').innerHTML=summaryHtml;
 
 // Render pricing adjustments table
-let html='<div class="table-container"><table class="price-table" style="width:100%;border-collapse:collapse">';
-html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric</th><th style="padding:12px;text-align:left;color:white">Options</th><th style="padding:12px;text-align:left;color:white">Color</th><th style="padding:12px;text-align:left;color:white">Base Price</th><th style="padding:12px;text-align:left;color:white">Supply (INC GST)</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
+const installerSelectionCount=(currentJob.windows||[]).filter(w=>w&&w.sendToInstaller!==false).length;
+const installerGroupKeys=Array.from(new Set((currentJob.windows||[]).map(w=>getWindowCategoryKey(w))));
+const installerGroupButtons=installerGroupKeys.map((groupKey,groupIndex)=>{
+  const matching=(currentJob.windows||[]).filter(w=>getWindowCategoryKey(w)===groupKey);
+  const selected=matching.filter(w=>w.sendToInstaller!==false).length;
+  const label=formatProductKeyLabel(groupKey||`Group ${groupIndex+1}`);
+  return `<button class="btn" style="padding:10px 14px;font-size:13px;background:${selected===matching.length&&matching.length?'#0F766E':'#E2E8F0'};color:${selected===matching.length&&matching.length?'white':'#334155'}" onclick="setInstallerSelectionForCategory(${currentJob.windows.findIndex(w=>getWindowCategoryKey(w)===groupKey)},${selected!==matching.length})">${escapeHtml(label)} (${selected}/${matching.length})</button>`;
+}).join('');
+let html=`<div style="border:1px solid #CBD5E1;border-radius:12px;background:linear-gradient(135deg,#F8FAFC 0%,#EFF6FF 100%);padding:16px 18px;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+    <div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#64748B;text-transform:uppercase">Installer Work Order Selection</div>
+      <div style="font-size:18px;font-weight:700;color:#0F172A;margin-top:4px">${installerSelectionCount} of ${currentJob.windows.length} products included</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllInstallerSelections(true)">Select All</button>
+      <button class="btn" style="padding:10px 14px;font-size:13px;background:#E2E8F0;color:#334155" onclick="setAllInstallerSelections(false)">Clear All</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">${installerGroupButtons}</div>
+</div>`;
+html+='<div class="table-container"><table class="price-table" style="width:100%;border-collapse:collapse">';
+html+='<thead><tr style="background:linear-gradient(135deg,#7BCCC4 0%,#5BA89F 100%)"><th style="padding:12px;text-align:center;color:white">Send</th><th style="padding:12px;text-align:left;color:white">Product</th><th style="padding:12px;text-align:left;color:white">Fabric / Material</th><th style="padding:12px;text-align:left;color:white">Options</th><th style="padding:12px;text-align:left;color:white">Colour</th><th style="padding:12px;text-align:left;color:white">Base Price</th><th style="padding:12px;text-align:left;color:white">Supply (INC GST)</th><th style="padding:12px;text-align:left;color:white">Multiplier</th><th style="padding:12px;text-align:left;color:white">Install (ex)</th><th style="padding:12px;text-align:left;color:white">Logistics (ex)</th></tr></thead><tbody>';
 currentJob.windows.forEach((w,idx)=>{
 normalizeWindowOptionState(w);
 const pricing=getWindowPricingDetails(w,currentJob);
@@ -2183,17 +3343,34 @@ const currentRate=pricing.displayRate;
 const currentMult=pricing.multiplier;
 const isShutterAllIn=isShutterAllInWindow(w);
 const fabricOptions=getFabricOptions(w.type,w.subType);
-const fabricSelect=fabricOptions.length>0?`<select id="jobfabric-${idx}" onchange="updateJobFabric(${idx})" style="width:160px;padding:10px;border:2px solid #D1D5DB;border-radius:6px">${fabricOptions.map(f=>`<option value="${f}" ${w.fabricType===f?'selected':''}>${f}</option>`).join('')}</select>`:`<span style="color:#999">-</span>`;
+const fabricSelect=fabricOptions.length>0?`<select id="jobfabric-${idx}" onchange="updateJobFabric(${idx})" style="width:100%;padding:10px;border:2px solid #D1D5DB;border-radius:6px">${fabricOptions.map(f=>`<option value="${f}" ${w.fabricType===f?'selected':''}>${f}</option>`).join('')}</select>`:`<span style="color:#999">No fabric list</span>`;
+const materialLabel=getDefaultMaterialLabel(w);
+const nameFabricHtml=fabricOptions.length
+  ? `<div style="display:grid;gap:6px;min-width:200px">${fabricSelect}<div class="option-note">Fabric applies to all ${escapeHtml(w.type)}${w.subType&&w.subType!=='-'?` ${escapeHtml(w.subType)}`:''}</div></div>`
+  : materialLabel
+    ? `<div style="display:grid;gap:6px;min-width:200px"><div style="padding:10px;border:2px solid #D1D5DB;border-radius:6px;background:#F8FAFC;color:#475569;font-weight:600">${escapeHtml(materialLabel)}</div><div class="option-note">Default material for all ${escapeHtml(w.type)}</div></div>`
+    : `<div style="display:grid;gap:8px;min-width:200px"><input type="text" value="${escapeHtml(w.productName||'')}" onchange="updateCategoryProductName(${idx},this.value)" placeholder="Product name" style="width:100%;padding:10px;border:2px solid #D1D5DB;border-radius:6px"><div class="option-note">Name applies to all ${escapeHtml(w.type)}${w.subType&&w.subType!=='-'?` ${escapeHtml(w.subType)}`:''}</div></div>`;
 const optionConfig=getWindowOptionConfig(w);
-const motorOptions=optionConfig.motorisation.flatMap(group=>group.options.map(option=>({value:`${group.group}::${option.name}`,label:`${group.group} - ${option.name} ($${parseNumberOr(option.amount,0).toFixed(2)})`})));
-const motorHtml=motorOptions.length?`<div><div class="option-note" style="margin-bottom:4px">Motorisation</div><select id="jobmotor-${idx}" onchange="updateJobMotorisation(${idx})" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No motorisation</option>${motorOptions.map(option=>`<option value="${option.value}" ${w.motorisationChoice===option.value?'selected':''}>${option.label}</option>`).join('')}</select></div>`:'';
-const fixedHtml=optionConfig.fixed.length?`<div><div class="option-note" style="margin-bottom:4px">Fixed extras</div><div class="option-list">${optionConfig.fixed.map(item=>`<label class="option-item"><input type="checkbox" ${ensureArray(w.selectedFixedExtras).includes(item.name)?'checked':''} onchange='toggleJobExtra(${idx},${JSON.stringify(item.name)},this.checked,"fixed")'> <span>${item.name} (+$${parseNumberOr(item.amount,0).toFixed(2)})</span></label>`).join('')}</div></div>`:'';
+  const selectedMotorGroup=optionConfig.motorisation.find(group=>group.group===w.motorisationBrand)||null;
+  const motorOptions=selectedMotorGroup?selectedMotorGroup.options.filter(option=>classifyMotorisationOption(option)==='motor'):[];
+  const remoteOptions=selectedMotorGroup?selectedMotorGroup.options.filter(option=>classifyMotorisationOption(option)==='remote'):[];
+  const chargerOptions=selectedMotorGroup?selectedMotorGroup.options.filter(option=>classifyMotorisationOption(option)==='charger'):[];
+  const hubOptions=selectedMotorGroup?selectedMotorGroup.options.filter(option=>classifyMotorisationOption(option)==='hub'):[];
+  const motorisationTotal=getMotorisationSelectionCost(w);
+  const motorHtml=optionConfig.motorisation.length?`<div style="display:grid;gap:8px"><div><div class="option-note" style="margin-bottom:4px">Motorisation brand</div><select id="jobmotorbrand-${idx}" onchange="updateJobMotorisationBrand(${idx})" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No motorisation</option>${optionConfig.motorisation.map(group=>`<option value="${group.group}" ${w.motorisationBrand===group.group?'selected':''}>${group.group}</option>`).join('')}</select></div>${selectedMotorGroup?`<div><div class="option-note" style="margin-bottom:4px">Motor</div><select id="jobmotor-main-${idx}" onchange="updateJobMotorisationPart(${idx},'motor')" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No motor selected</option>${motorOptions.map(option=>`<option value="${selectedMotorGroup.group}::${option.name}" ${w.motorisationMotorChoice===`${selectedMotorGroup.group}::${option.name}`?'selected':''}>${option.name} (+$${parseNumberOr(option.amount,0).toFixed(2)})</option>`).join('')}</select></div>`:''}${selectedMotorGroup&&remoteOptions.length?`<div><div class="option-note" style="margin-bottom:4px">Remote</div><select id="jobmotor-remote-${idx}" onchange="updateJobMotorisationPart(${idx},'remote')" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No remote</option>${remoteOptions.map(option=>`<option value="${selectedMotorGroup.group}::${option.name}" ${w.motorisationRemoteChoice===`${selectedMotorGroup.group}::${option.name}`?'selected':''}>${option.name} (+$${parseNumberOr(option.amount,0).toFixed(2)})</option>`).join('')}</select></div>`:''}${selectedMotorGroup&&chargerOptions.length?`<div><div class="option-note" style="margin-bottom:4px">Charger</div><select id="jobmotor-charger-${idx}" onchange="updateJobMotorisationPart(${idx},'charger')" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No charger</option>${chargerOptions.map(option=>`<option value="${selectedMotorGroup.group}::${option.name}" ${w.motorisationChargerChoice===`${selectedMotorGroup.group}::${option.name}`?'selected':''}>${option.name} (+$${parseNumberOr(option.amount,0).toFixed(2)})</option>`).join('')}</select></div>`:''}${selectedMotorGroup&&hubOptions.length?`<div><div class="option-note" style="margin-bottom:4px">Hub</div><select id="jobmotor-hub-${idx}" onchange="updateJobMotorisationPart(${idx},'hub')" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No hub</option>${hubOptions.map(option=>`<option value="${selectedMotorGroup.group}::${option.name}" ${w.motorisationHubChoice===`${selectedMotorGroup.group}::${option.name}`?'selected':''}>${option.name} (+$${parseNumberOr(option.amount,0).toFixed(2)})</option>`).join('')}</select></div>`:''}${selectedMotorGroup&&motorisationTotal?`<div class="option-note" style="color:#065F46">Motorisation total: $${motorisationTotal.toFixed(2)} ex GST</div>`:''}<div class="option-note">Applies to all ${escapeHtml(w.type)}${w.subType&&w.subType!=='-'?` ${escapeHtml(w.subType)}`:''}</div></div>`:'';
+const curtainTrackLength=getCurtainMotorisedTrackLengthMeters(w);
+const curtainTrackPrice=getCurtainMotorisedTrackPrice(w);
+const curtainRemotePrice=getCurtainMotorisedRemotePrice(w);
+const rollerOptionsHtml=(w.type==='Blinds'&&w.subType==='Roller')?`<div style="display:grid;gap:8px"><div><div class="option-note" style="margin-bottom:4px">Roll direction</div><select onchange="updateCategoryRollerField(${idx},'rollerRollType',this.value)" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">Select roll</option><option value="Front Roll" ${w.rollerRollType==='Front Roll'?'selected':''}>Front Roll</option><option value="Back Roll" ${w.rollerRollType==='Back Roll'?'selected':''}>Back Roll</option></select></div><div><div class="option-note" style="margin-bottom:4px">Control side</div><select onchange="updateCategoryRollerField(${idx},'rollerControlSide',this.value)" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">Select side</option><option value="Left" ${w.rollerControlSide==='Left'?'selected':''}>Left</option><option value="Right" ${w.rollerControlSide==='Right'?'selected':''}>Right</option></select></div><div class="option-note">Applies to all Blinds Roller</div></div>`:'';
+const curtainTrackHtml=w.type==='Curtains'?`<div><div class="option-note" style="margin-bottom:4px">Motorised Clear Wave Track</div><label class="option-item"><input type="checkbox" ${w.curtainMotorisedTrackEnabled?'checked':''} onchange="toggleCurtainMotorisedTrack(${idx},this.checked)"> <span>Add Acmeda Motorised Clear Wave Track${curtainTrackLength?` (${curtainTrackLength.toFixed(0)}m = $${curtainTrackPrice.toFixed(2)})`:''}</span></label><div style="margin-top:8px;display:grid;gap:8px"><label class="option-item"><input type="checkbox" ${w.curtainAddCharger?'checked':''} onchange="toggleCurtainCharger(${idx},this.checked)"> <span>Add Charger (+$${CURTAIN_MOTORISED_CHARGER_PRICE.toFixed(2)})</span></label><select onchange="updateCurtainRemote(${idx},this.value)" style="width:100%;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><option value="">No remote</option>${CURTAIN_MOTORISED_REMOTE_OPTIONS.map(option=>`<option value="${option.value}" ${w.curtainRemoteType===option.value?'selected':''}>${option.label} (+$${option.amount.toFixed(2)})</option>`).join('')}</select>${(curtainTrackPrice||curtainRemotePrice||w.curtainAddCharger)?`<div class="option-note" style="color:#065F46">Curtain motorised extras total: $${(curtainTrackPrice+curtainRemotePrice+(w.curtainAddCharger?CURTAIN_MOTORISED_CHARGER_PRICE:0)).toFixed(2)} ex GST</div>`:''}</div></div>`:'';
+const fixedOptions=[...optionConfig.fixed,...optionConfig.matrixFixed.map(item=>Object.assign({},item,{amount:getMatrixPrice(item.matrix,w.width,w.drop)}))];
+const fixedHtml=fixedOptions.length?`<div><div class="option-note" style="margin-bottom:4px">Fixed extras</div><div class="option-list">${fixedOptions.map(item=>`<label class="option-item"><input type="checkbox" ${ensureArray(w.selectedFixedExtras).includes(item.name)?'checked':''} onchange='toggleJobExtra(${idx},${JSON.stringify(item.name)},this.checked,"fixed")'> <span>${item.name}${item.amount!=null?` (+$${parseNumberOr(item.amount,0).toFixed(2)})`:' (enter size to price)'}</span></label>`).join('')}</div></div>`:'';
 const percentHtml=optionConfig.percent.length?`<div><div class="option-note" style="margin-bottom:4px">Percent extras</div><div class="option-list">${optionConfig.percent.map(item=>`<label class="option-item"><input type="checkbox" ${ensureArray(w.selectedPercentExtras).includes(item.name)?'checked':''} onchange='toggleJobExtra(${idx},${JSON.stringify(item.name)},this.checked,"percent")'> <span>${item.name} (+${parseNumberOr(item.percent,0).toFixed(0)}%)</span></label>`).join('')}</div></div>`:'';
 const manualNotes=optionConfig.manual.length?`<div class="option-note">${optionConfig.manual.map(item=>`${item.name}: ${item.pricingText}`).join(' • ')}</div>`:'';
 const manualExtraHtml=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><input type="number" value="${w.manualProductExtra!==''?w.manualProductExtra:''}" oninput="updateManualProductExtra(${idx},this.value)" placeholder="manual extra" style="width:110px;padding:8px;border:2px solid #D1D5DB;border-radius:6px"><span class="option-note">Added before markup</span></div>`;
 const optionSummary=pricing.optionTotal?`<div class="option-summary">Options total: $${pricing.optionTotal.toFixed(2)}</div>`:'';
 const shutterNote=isShutterAllIn?`<div class="option-note" style="color:#1D4ED8">Customer shutter rate is all-inclusive. No extra install, logistics, freight, or multiplier is added.</div>`:'';
-const optionSections=isShutterAllIn?[shutterNote]:[motorHtml,fixedHtml,percentHtml,manualNotes,manualExtraHtml,optionSummary].filter(Boolean);
+const optionSections=isShutterAllIn?[shutterNote]:[rollerOptionsHtml,motorHtml,curtainTrackHtml,fixedHtml,percentHtml,manualNotes,manualExtraHtml,optionSummary].filter(Boolean);
 const optionsHtml=optionSections.length?`<div class="option-stack">${optionSections.join('')}</div>`:`<span style="color:#999;font-size:12px">No extra options</span>`;
 const multiplierCell=isShutterAllIn
   ? `<div style="font-weight:700;color:#6B7280">1.00</div><div class="option-note">fixed for shutters</div>`
@@ -2204,7 +3381,7 @@ const installCell=isShutterAllIn
 const logisticsCell=isShutterAllIn
   ? `<div style="font-weight:700;color:#6B7280">Included</div><div class="option-note">inside shutter rate</div>`
   : `<input type="number" id="joblog-${idx}" value="${(w.logisticsOverride!==undefined&&w.logisticsOverride!==null&&w.logisticsOverride!=='')?w.logisticsOverride:''}" placeholder="auto" onchange="updateJobExtras()" style="width:90px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px">`;
-html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:180px">${fabricSelect}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:150px"><input type="text" id="jobcolor-${idx}" value="${w.color||''}" oninput="currentJob.windows[${idx}].color=this.value" placeholder="White" style="width:120px;padding:10px;border:2px solid #D1D5DB;border-radius:6px"></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:150px"><div style="font-weight:700;color:#1D4ED8">$${pricing.supplyCostIncGst.toFixed(2)}</div><div class="option-note">per product inc GST</div></td><td style="padding:12px;min-width:120px">${multiplierCell}</td><td style="padding:12px;min-width:110px">${installCell}</td><td style="padding:12px;min-width:110px">${logisticsCell}</td></tr>`;
+html+=`<tr style="border-bottom:1px solid #E5E7EB"><td style="padding:12px;text-align:center;min-width:70px"><input type="checkbox" ${w.sendToInstaller!==false?'checked':''} onchange="setInstallerSelectionForCategory(${idx},this.checked)" style="transform:scale(1.1)"><div class="option-note" style="margin-top:6px">${escapeHtml(formatProductKeyLabel(getWindowCategoryKey(w)))}</div></td><td style="padding:12px;font-weight:600;color:#1F2937;min-width:220px">${w.room||'Window '+(idx+1)} - ${w.type} ${w.subType}</td><td style="padding:12px;min-width:230px">${nameFabricHtml}</td><td style="padding:12px;min-width:340px">${optionsHtml}</td><td style="padding:12px;min-width:170px"><div style="display:grid;gap:6px"><input type="text" id="jobcolor-${idx}" value="${escapeHtml(w.color||'')}" onchange="updateCategoryColor(${idx},this.value)" placeholder="White" style="width:100%;padding:10px;border:2px solid #D1D5DB;border-radius:6px"><div class="option-note">Colour applies to all ${escapeHtml(w.type)}${w.subType&&w.subType!=='-'?` ${escapeHtml(w.subType)}`:''}</div></div></td><td style="padding:12px;min-width:170px"><input type="number" id="jobrate-${idx}" value="${currentRate.toFixed(2)}" onchange="updateJobRates(${idx})" style="width:100px;padding:10px;border:2px solid #D1D5DB;border-radius:6px;font-size:15px"> <span style="color:#6B7280">${pricing.displayUnit}</span></td><td style="padding:12px;min-width:150px"><div style="font-weight:700;color:#1D4ED8">$${pricing.supplyCostIncGst.toFixed(2)}</div><div class="option-note">per product inc GST</div></td><td style="padding:12px;min-width:120px">${multiplierCell}</td><td style="padding:12px;min-width:110px">${installCell}</td><td style="padding:12px;min-width:110px">${logisticsCell}</td></tr>`;
 });
 html+='</tbody></table></div>';
 html+=`<div class="freight-note" style="margin-top:15px">🔧 <strong>Install:</strong> $${calc.installTotal.toFixed(2)} • 🚚 <strong>Logistics:</strong> $${calc.logisticsTotal.toFixed(2)} (auto per item, editable above) • <strong>Freight carrier:</strong> $${calc.freight.toFixed(2)} total (distributed $${calc.freightPerProduct.toFixed(2)}/product)</div>`;
@@ -2221,43 +3398,77 @@ return [];
 
 function updateJobFabric(idx){
 const fabricType=document.getElementById('jobfabric-'+idx).value;
-currentJob.windows[idx].fabricType=fabricType;
 const w=currentJob.windows[idx];
+applyWindowFieldToCategory(idx,'fabricType',fabricType);
 const legacyMap=getLegacyFabricMap(w.type,w.subType);
 if(getCatalogProduct(w)){
   if(String(w.pricingModeOverride||'')!=='manual'){
-    currentJob.windows[idx].rateOverride='';
+    currentJob.windows.forEach(other=>{
+      if(getWindowCategoryKey(other)!==getWindowCategoryKey(w))return;
+      other.rateOverride='';
+    });
   }
 }else{
   const key=getWindowKey(w);
   const newRate=legacyMap&&legacyMap[fabricType]!=null?legacyMap[fabricType]:defaultRates[key];
-  document.getElementById('jobrate-'+idx).value=newRate;
-  currentJob.windows[idx].rateOverride=newRate;
+  currentJob.windows.forEach(other=>{
+    if(getWindowCategoryKey(other)!==getWindowCategoryKey(w))return;
+    other.rateOverride=newRate;
+  });
+  const rateEl=document.getElementById('jobrate-'+idx);
+  if(rateEl)rateEl.value=newRate;
 }
 updateJobRates();
 }
 
-function updateJobMotorisation(idx){
-  const w=currentJob.windows[idx];
-  normalizeWindowOptionState(w);
-  const select=document.getElementById('jobmotor-'+idx);
-  const choice=select?select.value:'';
-  w.motorisationChoice=choice;
-  if(!choice){
-    w.motorisationCost='';
-    updateJobRates();
-    return;
-  }
-  const config=getWindowOptionConfig(w);
-  let found=null;
-  config.motorisation.forEach(group=>{
-    group.options.forEach(option=>{
-      const optionKey=`${group.group}::${option.name}`;
-      if(optionKey===choice)found=option;
+function applyMotorisationStateToCategory(idx,updates){
+  const source=currentJob.windows[idx];
+  if(!source)return;
+  currentJob.windows.forEach(other=>{
+    if(getWindowCategoryKey(other)!==getWindowCategoryKey(source))return;
+    normalizeWindowOptionState(other);
+    Object.keys(updates).forEach(key=>{
+      other[key]=updates[key];
     });
+    other.motorisationChoice=other.motorisationMotorChoice||'';
+    other.motorisationCost=getMotorisationSelectionCost(other);
   });
-  w.motorisationCost=found?parseNumberOr(found.amount,0):'';
+}
+
+function updateJobMotorisationBrand(idx){
+  const select=document.getElementById('jobmotorbrand-'+idx);
+  const brand=select?select.value:'';
+  applyMotorisationStateToCategory(idx,{
+    motorisationBrand:brand,
+    motorisationMotorChoice:'',
+    motorisationRemoteChoice:'',
+    motorisationChargerChoice:'',
+    motorisationHubChoice:'',
+    motorisationChoice:'',
+    motorisationCost:''
+  });
+  if(showingFinalDetails)renderPricingAdjustments();
   updateJobRates();
+}
+
+function updateJobMotorisationPart(idx,part){
+  const fieldMap={
+    motor:'motorisationMotorChoice',
+    remote:'motorisationRemoteChoice',
+    charger:'motorisationChargerChoice',
+    hub:'motorisationHubChoice'
+  };
+  const field=fieldMap[part];
+  if(!field)return;
+  const select=document.getElementById(`jobmotor-${part}-${idx}`);
+  const value=select?select.value:'';
+  applyMotorisationStateToCategory(idx,{[field]:value});
+  if(showingFinalDetails)renderPricingAdjustments();
+  updateJobRates();
+}
+
+function updateJobMotorisation(idx){
+  updateJobMotorisationBrand(idx);
 }
 
 function toggleJobExtra(idx,name,checked,type){
@@ -2331,6 +3542,7 @@ renderPricingAdjustments();
 }
 
 async function saveJob(){
+syncJobCoreFieldsFromForm();
 currentJob.savedAt=new Date().toISOString();
 currentJob.freightCost=calculateFreight(currentJob);
 const jobToPersist=JSON.parse(JSON.stringify(currentJob));
@@ -2346,6 +3558,7 @@ alert('✓ Job saved to cloud successfully!');
 currentJob=null;
 showingFinalDetails=false;
 clearWhatsAppImport();
+clearOrderSheetFile();
 document.getElementById('emptyState').classList.remove('hidden');
 document.getElementById('jobForm').classList.add('hidden');
 document.getElementById('windowsCard').classList.add('hidden');
@@ -2362,6 +3575,7 @@ currentJob=null;
 currentEditingIndex=null;
 showingFinalDetails=false;
 clearWhatsAppImport();
+clearOrderSheetFile();
 document.getElementById('emptyState').classList.remove('hidden');
 document.getElementById('jobForm').classList.add('hidden');
 document.getElementById('windowsCard').classList.add('hidden');
@@ -2387,7 +3601,7 @@ const calc=calculateTotals(job);
 currentJob=null;
 const card=document.createElement('div');
 card.className='card';
-card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:15px"><div><h3 style="color:#1F2937;margin-bottom:8px">${job.clientName}</h3><p style="color:#6B7280;font-size:14px">${job.date} • ${job.windows.length} windows • $${calc.total.toFixed(2)}</p></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" style="padding:10px 16px;font-size:14px;background:#F59E0B;color:white;font-weight:600" onclick="editJob(${index})">✏️ Edit</button><button class="btn btn-teal" style="padding:10px 16px;font-size:14px" onclick="downloadJob(${index})">📥 Download</button><button class="btn" style="padding:10px 16px;font-size:14px;background:#13B5EA;color:white;font-weight:600" onclick="exportToXero(${index})">📤 Export to Xero</button><button class="btn btn-red" style="padding:10px 16px;font-size:14px" onclick="deleteJob(${index})">🗑️</button></div></div>`;
+card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:15px"><div><h3 style="color:#1F2937;margin-bottom:8px">${job.clientName}</h3><p style="color:#6B7280;font-size:14px">${job.date} • ${job.windows.length} windows • $${calc.total.toFixed(2)}</p></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" style="padding:10px 16px;font-size:14px;background:#F59E0B;color:white;font-weight:600" onclick="editJob(${index})">✏️ Edit</button><button class="btn" style="padding:10px 16px;font-size:14px;background:#0F766E;color:white;font-weight:600" onclick="downloadInstallerWorkOrder(${index})">🧾 Select Work Order</button><button class="btn btn-teal" style="padding:10px 16px;font-size:14px" onclick="downloadJob(${index})">📥 Download</button><button class="btn" style="padding:10px 16px;font-size:14px;background:#13B5EA;color:white;font-weight:600" onclick="exportToXero(${index})">📤 Export to Xero</button><button class="btn btn-red" style="padding:10px 16px;font-size:14px" onclick="deleteJob(${index})">🗑️</button></div></div>`;
 container.appendChild(card);
 });
 }
@@ -2400,6 +3614,7 @@ currentEditingIndex=index;
 showingFinalDetails=false;
 showTab('measure');
 clearWhatsAppImport();
+clearOrderSheetFile();
 document.getElementById('emptyState').classList.add('hidden');
 document.getElementById('jobForm').classList.remove('hidden');
 document.getElementById('windowsCard').classList.remove('hidden');
@@ -2407,10 +3622,7 @@ document.getElementById('jobButtons').classList.remove('hidden');
 document.getElementById('finalDetails').classList.add('hidden');
 document.getElementById('btnContinue').classList.remove('hidden');
 document.getElementById('btnSave').classList.add('hidden');
-document.getElementById('clientName').value=currentJob.clientName||'';
-document.getElementById('address').value=currentJob.address||'';
-document.getElementById('phone').value=currentJob.phone||'';
-document.getElementById('email').value=currentJob.email||'';
+populateJobCoreFields(currentJob);
 if(currentJob.windows.length>0){
 document.getElementById('emptyWindows').classList.add('hidden');
 document.getElementById('windowsTable').classList.remove('hidden');
@@ -2451,9 +3663,12 @@ txt+='Window '+(i+1)+':\n';
 if(w.room)txt+='  Room: '+w.room+'\n';
 if(w.windowNumber)txt+='  Window #: '+w.windowNumber+'\n';
 txt+='  Type: '+w.type+' - '+w.subType+'\n';
+if(getEffectiveProductName(w))txt+='  Product Name: '+getEffectiveProductName(w)+'\n';
 if(w.fabricType)txt+='  Fabric: '+w.fabricType+'\n';
 if(w.color)txt+='  Color: '+w.color+'\n';
 txt+='  Dimensions: '+w.width+'mm × '+w.drop+'mm\n';
+if(w.rollerRollType)txt+='  Roll: '+w.rollerRollType+'\n';
+if(w.rollerControlSide)txt+='  Control Side: '+w.rollerControlSide+'\n';
 if(w.midRailPosition)txt+='  Mid Rail Position: '+w.midRailPosition+'mm\n';
 const fits=[];
 if(w.recessFit)fits.push('Recess');
@@ -2500,19 +3715,36 @@ window.location.href='/.netlify/functions/xero-auth-start?token='+encodeURICompo
 async function refreshXeroStatus(){
 const statusEl=document.getElementById('xeroStatus');
 if(!statusEl)return false;
+if(hasLocalXeroToken()){
+statusEl.innerHTML='<span style="color:#10B981">✓ Connected</span>';
+setBrandingThemeStatus('Using saved Xero session for export.','#065F46');
+loadBrandingThemes();
+return true;
+}
 try{
-const response=await authFetch('/.netlify/functions/xero-status');
+const response=await authFetch('/.netlify/functions/xero-status',{headers:getXeroRequestHeaders()});
 const data=await response.json();
 if(!response.ok||data.error)throw new Error(data.error||'Status check failed');
+if(data.localToken)setLocalXeroTokenValue(data.localToken);
 if(data.connected){
 statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
 loadBrandingThemes();
+return true;
+}
+if(hasLocalXeroToken()){
+statusEl.innerHTML='<span style="color:#10B981">✓ Connected (local session)</span>';
+setBrandingThemeStatus('Using local Xero session for export.','#065F46');
 return true;
 }
 statusEl.innerHTML='<span style="color:#DC2626">✖ Not connected</span>';
 setBrandingThemeStatus('Connect Xero to load branding themes.','#6B7280');
 return false;
 }catch(err){
+if(hasLocalXeroToken()){
+statusEl.innerHTML='<span style="color:#10B981">✓ Connected (local session)</span>';
+setBrandingThemeStatus('Using local Xero session for export.','#065F46');
+return true;
+}
 statusEl.innerHTML='<span style="color:#F59E0B">⚠ Unable to check status</span>';
 setBrandingThemeStatus('Unable to load branding themes until Xero connection is available.','#B45309');
 return false;
@@ -2524,9 +3756,10 @@ const select=document.getElementById('quoteBrandingTheme');
 if(!select)return;
 setBrandingThemeStatus('Loading themes from Xero...','#1D4ED8');
 try{
-  const response=await authFetch('/.netlify/functions/xero-branding-themes');
+  const response=await authFetch('/.netlify/functions/xero-branding-themes',{headers:getXeroRequestHeaders()});
   const data=await response.json();
   if(!response.ok||data.error)throw new Error(data.error||'Failed to load branding themes');
+  if(data.localToken)setLocalXeroTokenValue(data.localToken);
   xeroBrandingThemes=Array.isArray(data.themes)?data.themes:[];
   xeroDefaultBrandingThemeId=data.defaultThemeId||'';
   if(!defaultQuoteBrandingThemeId&&xeroDefaultBrandingThemeId){
@@ -2542,7 +3775,7 @@ try{
 }catch(err){
   xeroBrandingThemes=[];
   renderBrandingThemeOptions();
-  setBrandingThemeStatus('Reconnect Xero to allow theme access.','#B91C1C');
+  setBrandingThemeStatus(hasLocalXeroToken()?'Using local Xero session for export.':'Reconnect Xero to allow theme access.',hasLocalXeroToken()?'#065F46':'#B91C1C');
 }
 }
 
@@ -2551,6 +3784,7 @@ const params=new URLSearchParams(window.location.search);
 const code=params.get('code');
 const error=params.get('error');
 if(error){
+setLocalXeroTokenValue(null);
 alert('Xero connection cancelled or failed: '+error);
 window.history.replaceState({},document.title,window.location.pathname);
 await refreshXeroStatus();
@@ -2569,6 +3803,7 @@ code
 });
 const data=await response.json();
 if(data.error)throw new Error(data.error);
+setLocalXeroTokenValue(data.localToken||null);
 if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected to '+(data.tenant_name||'Xero')+'</span>';
 alert('✅ Connected to Xero!\n\nOrganization: '+data.tenant_name);
 window.history.replaceState({},document.title,window.location.pathname);
@@ -2586,38 +3821,26 @@ if(!job)return;
 currentJob=job;
 const calc=calculateTotals(job);
 currentJob=null;
-const connected=await refreshXeroStatus();
+const connected=hasLocalXeroToken()?true:await refreshXeroStatus();
 if(!connected){
 alert('⚠️ Please connect to Xero first!\n\nGo to Settings → Xero Integration');
 return;
 }
 const freightShares=calc.freightShares||[];
 const lineItems=job.windows.map((w,i)=>{
-const width=parseFloat(w.width)||0;
-const drop=parseFloat(w.drop)||0;
 const pricing=getWindowPricingDetails(w,job);
 // Hidden extras (install + logistics + allocated freight) are bundled into the UnitAmount.
 const install=getInstallChargeForWindow(w);
 const logistics=getLogisticsChargeForWindow(w);
 const freightShare=(freightShares[i]||0);
 const price=(pricing.subtotal+install+logistics+freightShare).toFixed(2);
-let desc=`${w.room||'Window '+(i+1)} - ${w.type} ${w.subType}`;
-if(w.color)desc+=` (${w.color})`;
-if(w.fabricType)desc+=` - ${w.fabricType}`;
-desc+=`\n${width}mm x ${drop}mm`;
-const fits=[];
-if(w.recessFit)fits.push('Recess');
-if(w.faceFit)fits.push('Face');
-if(w.ceilingFit)fits.push('Ceiling');
-if(fits.length)desc+=` | ${fits.join(', ')}`;
-if(w.midRailPosition)desc+=` | Mid Rail: ${w.midRailPosition}mm`;
-if(w.notes)desc+=`\n${w.notes}`;
+const desc=buildXeroLineDescription(w,i);
 return{Description:desc,Quantity:1,UnitAmount:parseFloat(price),TaxType:"OUTPUT"};
 });
 try{
 const response=await authFetch('/.netlify/functions/xero-export',{
 method:'POST',
-headers:{'Content-Type':'application/json'},
+headers:Object.assign({'Content-Type':'application/json'},getXeroRequestHeaders()),
 body:JSON.stringify({
 job:{clientName:job.clientName,email:job.email,phone:job.phone,address:job.address,date:job.date,id:job.id,quoteBrandingThemeId:defaultQuoteBrandingThemeId,quoteExpiryDays:defaultQuoteExpiryDays,quoteTerms:defaultQuoteTerms},
 lineItems:lineItems
@@ -2627,6 +3850,7 @@ const result=await response.json();
 if(!response.ok||result.error){
 throw new Error(result.error||result.details||'Export failed');
 }
+if(result.localToken)setLocalXeroTokenValue(result.localToken);
 alert(`✅ Quote exported to Xero!\n\nCustomer: ${job.clientName}\nTotal: $${calc.total.toFixed(2)}\n\n🎉 Check your Xero account!`);
 }catch(err){
 alert('❌ Export failed:\n\n'+err.message);
@@ -2635,7 +3859,7 @@ alert('❌ Export failed:\n\n'+err.message);
 
 window.addEventListener('load',async ()=>{
 await loadPricingCatalog();
-handleXeroCallback();
+await handleXeroCallback();
 const redirectUriField=document.getElementById('currentRedirectUri');
 if(redirectUriField)redirectUriField.value=window.location.origin+'/xero-callback.html';
 ['loginEmail','loginPassword'].forEach(id=>{
@@ -2649,7 +3873,14 @@ if(!appInitialized){
 loadJobs();
 appInitialized=true;
 }
-refreshXeroStatus();
+if(hasLocalXeroToken()){
+  const statusEl=document.getElementById('xeroStatus');
+  if(statusEl)statusEl.innerHTML='<span style="color:#10B981">✓ Connected</span>';
+  setBrandingThemeStatus('Using saved Xero session for export.','#065F46');
+  loadBrandingThemes();
+}else{
+  refreshXeroStatus();
+}
 }else{
 setBrandingThemeStatus('Connect Xero to load branding themes.','#6B7280');
 }

@@ -2,8 +2,12 @@
   "name": "measurement-pro",
   "version": "1.0.0",
   "description": "Decovibes Measurement Pro with Xero Integration",
+  "scripts": {
+    "test:order-import": "node scripts/test-order-import.mjs"
+  },
   "dependencies": {
     "@netlify/blobs": "^9.0.0",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "xlsx": "^0.18.5"
   }
 }

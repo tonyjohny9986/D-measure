@@ -77,6 +77,92 @@ def parse_matrix_sections(ws):
     return sections
 
 
+def parse_single_matrix(ws, key_name):
+    width_row = None
+    for row in range(1, ws.max_row + 1):
+        if number(ws.cell(row, 2).value) is not None:
+            width_row = row
+            break
+    if width_row is None:
+        return {}
+
+    widths = []
+    col = 2
+    while col <= ws.max_column:
+        value = number(ws.cell(width_row, col).value)
+        if value is None:
+            break
+        widths.append(int(round(value)))
+        col += 1
+
+    drops = []
+    prices = []
+    row = width_row + 1
+    while row <= ws.max_row:
+        drop = number(ws.cell(row, 1).value)
+        if drop is None:
+            break
+        row_prices = []
+        valid = True
+        for offset in range(len(widths)):
+            price = number(ws.cell(row, 2 + offset).value)
+            if price is None:
+                valid = False
+                break
+            row_prices.append(round(price, 6))
+        if not valid:
+            break
+        drops.append(int(round(drop)))
+        prices.append(row_prices)
+        row += 1
+
+    return {
+        key_name: {
+            "widthsMm": widths,
+            "dropsMm": drops,
+            "prices": prices,
+        }
+    }
+
+
+def parse_offset_matrix(ws, width_row, width_start_col, drop_start_row, drop_col):
+    widths = []
+    col = width_start_col
+    while col <= ws.max_column:
+        value = number(ws.cell(width_row, col).value)
+        if value is None:
+            break
+        widths.append(int(round(value)))
+        col += 1
+
+    drops = []
+    prices = []
+    row = drop_start_row
+    while row <= ws.max_row:
+        drop = number(ws.cell(row, drop_col).value)
+        if drop is None:
+            break
+        row_prices = []
+        valid = True
+        for offset in range(len(widths)):
+            price = number(ws.cell(row, width_start_col + offset).value)
+            if price is None:
+                valid = False
+                break
+            row_prices.append(round(price, 6))
+        if not valid:
+            break
+        drops.append(int(round(drop)))
+        prices.append(row_prices)
+        row += 1
+
+    return {
+        "widthsMm": widths,
+        "dropsMm": drops,
+        "prices": prices,
+    }
+
+
 def add_fabric(fabrics, seen, name, supplier, category_key):
     fabric_name = text(name)
     if not fabric_name:
@@ -199,6 +285,7 @@ wb_formulas = openpyxl.load_workbook(WORKBOOK_PATH, data_only=False)
 roller_matrices = parse_matrix_sections(wb_values["Roller Blind Price List"])
 vertical_matrices = parse_matrix_sections(wb_values["Vertical Blind Price List"])
 verishade_matrices = parse_matrix_sections(wb_values["Verishade Price List"])
+soft_wave_matrices = parse_single_matrix(wb_values["Soft Wave Price List"], "Soft Wave")
 
 roller_sheet = wb_formulas["Roller&Panel Fabric Categories"]
 roller_fabrics = []
@@ -223,6 +310,12 @@ add_fabric(verishade_fabrics, verishade_seen, "Classic", None, "Classic")
 verishade_fabrics.extend(parse_grid_categories(verishade_sheet, [6], lambda label: matrix_key_from_title(label)))
 
 roller_extras = parse_simple_extras(wb_values["Roller Blind Extras"])
+roller_extras["matrixFixed"] = [
+    {
+        "name": "Cassette",
+        "matrix": parse_offset_matrix(wb_values["Roller Blind Extras"], 4, 6, 5, 5),
+    }
+]
 roller_motorisation = parse_motorisation(wb_values["Roller Blind Motorisation"])
 vertical_extras = parse_simple_extras(wb_values["Vertical Blind Extras"])
 
@@ -249,6 +342,18 @@ catalog = {
             "defaultFabric": "Classic",
             "categories": verishade_matrices,
             "fabrics": verishade_fabrics,
+        },
+        "softWave": {
+            "displayName": "Soft Wave",
+            "defaultFabric": "Soft Wave",
+            "categories": soft_wave_matrices,
+            "fabrics": [
+                {
+                    "name": "Soft Wave",
+                    "supplier": None,
+                    "categoryKey": "Soft Wave",
+                }
+            ],
         },
     },
 }

@@ -1,6 +1,12 @@
 const { CORS_HEADERS, getJson, setJson } = require("./_store");
 const { requireAuth, unauthorized } = require("./_auth");
 
+const JOB_INDEX_KEY = "jobs_index";
+
+function getJobStoreKey(id) {
+  return `job_${String(id)}`;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: CORS_HEADERS, body: "" };
@@ -26,21 +32,24 @@ exports.handler = async (event) => {
       };
     }
 
-    const jobs = await getJson("jobs", []);
-    const safeJobs = Array.isArray(jobs) ? jobs : [];
-    const idx = safeJobs.findIndex((j) => String(j.id) === String(job.id));
-    if (idx >= 0) {
-      safeJobs[idx] = job;
-    } else {
-      safeJobs.push(job);
+    const normalizedJob = {
+      ...job,
+      updatedAt: new Date().toISOString(),
+    };
+    const storeKey = getJobStoreKey(normalizedJob.id);
+    const index = await getJson(JOB_INDEX_KEY, []);
+    const nextIndex = Array.isArray(index) ? [...index] : [];
+    if (!nextIndex.includes(storeKey)) {
+      nextIndex.push(storeKey);
     }
 
-    await setJson("jobs", safeJobs);
+    await setJson(storeKey, normalizedJob);
+    await setJson(JOB_INDEX_KEY, nextIndex);
 
     return {
       statusCode: 200,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ ok: true, total: safeJobs.length }),
+      body: JSON.stringify({ ok: true, total: nextIndex.length }),
     };
   } catch (error) {
     return {
